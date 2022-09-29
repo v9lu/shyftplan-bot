@@ -79,7 +79,6 @@ def notification(loc_pos_id: str, objekt: dict, shifted: str, text: str = '') ->
                             f"From: {datetime_starts}\n"
                             f"To: {datetime_ends}" + text)
                     elif shifted == "Unknown":
-                        print("good")
                         requests.post(
                             f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_MY_ID}&text="
                             f"⚠️ Maybe shifted on: {location_fullname}\n"
