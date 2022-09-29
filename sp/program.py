@@ -1,4 +1,4 @@
-# Version 1.9.2 release
+# Version 1.9.4 release
 
 import configparser
 import json
@@ -36,6 +36,7 @@ def join_or_accept_shift(shift_id, location_name: str, shift_type: str, dts: tup
     dt_starts_getted: datetime = dts[0].replace(tzinfo=None)
     dt_ends_getted: datetime = dts[1].replace(tzinfo=None)
     if shift_type == 'join':
+        time.sleep(2)  # bug check
         response = requests.post(SITE + "/api/v1/requests/join",
                                  params={"user_email": shyftplan_email, "authentication_token": shyftplan_token,
                                          "company_id": COMPANY_ID, "shift_id": shift_id})
@@ -63,7 +64,8 @@ def notification(loc_pos_id: str, objekt: dict, shifted: str, text: str = '') ->
     for location in locations:
         if location["id"] == loc_pos_id:
             if dts in location["dates"]:
-                location_name = location['name']
+                location_name = location["name"]
+                location_fullname = location["fullname"]
                 if shifted == "True" or shifted == "Unknown":
                     shifted_calendar_day = datetime_starts.strftime("%d.%m.%Y")
                     shifted_starts = datetime_starts.strftime("%H:%M")
@@ -73,18 +75,19 @@ def notification(loc_pos_id: str, objekt: dict, shifted: str, text: str = '') ->
                     if shifted == "True":
                         requests.post(
                             f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_MY_ID}&text="
-                            f"✅ Successfully shifted on: {location_name}\n"
+                            f"✅ Successfully shifted on: {location_fullname}\n"
                             f"From: {datetime_starts}\n"
                             f"To: {datetime_ends}" + text)
                     elif shifted == "Unknown":
+                        print("good")
                         requests.post(
                             f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_MY_ID}&text="
-                            f"⚠️ Maybe shifted on: {location_name}\n"
+                            f"⚠️ Maybe shifted on: {location_fullname}\n"
                             f"From: {datetime_starts}\n"
                             f"To: {datetime_ends}" + text)
                 elif shifted == "False":
                     requests.post(f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_MY_ID}&text="
-                                  f"❌ Unsuccessfully shifted on: {location_name}\n"
+                                  f"❌ Unsuccessfully shifted on: {location_fullname}\n"
                                   f"From: {datetime_starts}\n"
                                   f"To: {datetime_ends}" + text)
 
@@ -143,7 +146,7 @@ def newsfeeds_checker() -> bool:
                              shifted="True")
             elif json_items["key"] == "request.shift_application" and json_items["user_id"] == shyftplan_my_user_id:
                 notification(loc_pos_id=str(json_items["metadata"]["managed_locations_position_ids"][0]),
-                             objekt=json_items["objekt"],
+                             objekt=json_items["objekt"]["shift"],
                              shifted="Unknown")
             elif json_items["key"] == "request.refused":
                 notification(loc_pos_id=str(json_items["objekt"]["locations_position_id"]),
