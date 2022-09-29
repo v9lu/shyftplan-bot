@@ -1,4 +1,4 @@
-# Version 1.2.9 release
+# Version 1.2.10 release
 
 from datetime import datetime, timedelta
 from unidecode import unidecode
@@ -153,12 +153,13 @@ def add_days(days: str) -> None:
             work_data_extracted.append(day)
         elif location_calendar_day in work_data_extracted_string:
             for work_day in work_data_extracted:
+                work_day_index = work_data_extracted.index(work_day)
                 if location_calendar_day in work_day:
                     work_day_hours = work_day.split("/")[2:]
                     day_hours = day.split("/")[2:]
                     for hours_couple in day_hours:
                         if hours_couple not in work_day_hours:
-                            work_data_extracted[work_data_extracted.index(work_day)] += f"/{hours_couple}"
+                            work_data_extracted[work_day_index] += f"/{hours_couple}"
                     break
 
     work_data_extracted.sort(key=take_date)
@@ -182,6 +183,7 @@ def remove_days(days: str) -> None:
             work_data_extracted.remove(day)
         elif location_calendar_day in work_data_extracted_string:
             for work_day in work_data_extracted:
+                work_day_index = work_data_extracted.index(work_day)
                 if location_calendar_day in work_day:
                     work_day_hours = work_day.split("/")[2:]
                     day_hours = day.split("/")[2:]
@@ -192,7 +194,7 @@ def remove_days(days: str) -> None:
                             new_hours_couples += f"/{hours_couple}"
                     new_work_day = '/'.join(new_work_day) + new_hours_couples
                     if len(new_work_day.split("/")) > 2:
-                        work_data_extracted[work_data_extracted.index(work_day)] = new_work_day
+                        work_data_extracted[work_day_index] = new_work_day
                     else:
                         work_data_extracted.remove(work_day)
                     break
