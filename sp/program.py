@@ -1,4 +1,4 @@
-# Version 1.9.4 release
+# Version 1.9.5 release
 
 import configparser
 import json
@@ -32,26 +32,37 @@ def api_data_checker(position_id_getted, dts: tuple) -> list:
         return [False, None]
 
 
-def join_or_accept_shift(shift_id, location_name: str, shift_type: str, dts: tuple) -> None:
-    dt_starts_getted: datetime = dts[0].replace(tzinfo=None)
-    dt_ends_getted: datetime = dts[1].replace(tzinfo=None)
-    if shift_type == 'join':
-        time.sleep(2)  # bug check
+def remove_day_request(location_name: str, datetimes: tuple):
+    day = datetimes[0].strftime("%d.%m.%Y")
+    start_hour = datetimes[0].strftime("%H:%M")
+    end_hour = datetimes[1].strftime("%H:%M")
+    remove_day_string = f"{location_name}/{day}/{start_hour}-{end_hour}"
+    work_data.remove_days(remove_day_string)
+
+
+def join_or_accept_shift(shift_id, location_name: str, shift_type: str, datetimes: tuple) -> None:
+    datetime_starts: datetime = datetimes[0].replace(tzinfo=None)
+    datetime_ends: datetime = datetimes[1].replace(tzinfo=None)
+    if shift_type == "join":
+        time.sleep(3)  # bug check
         response = requests.post(SITE + "/api/v1/requests/join",
                                  params={"user_email": shyftplan_email, "authentication_token": shyftplan_token,
                                          "company_id": COMPANY_ID, "shift_id": shift_id})
-    elif shift_type == 'replace':
+    else:
         response = requests.post(SITE + "/api/v1/requests/replace/accept",
                                  params={"user_email": shyftplan_email, "authentication_token": shyftplan_token,
                                          "company_id": COMPANY_ID, "id": shift_id, "ignore_conflicts": "false"})
 
-    if 'error' in response.text:
+    json_response = json.loads(response.text)
+    if "invalid" in json_response or "conflicts" in json_response:
+        remove_day_request(location_name, datetimes)
         requests.post(
-            f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id=1630691291&text="
+            f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_MY_ID}&text="
             f"❌ Unsuccessfully shifted on: {location_name}\n"
-            f"From: {dt_starts_getted}\n"
-            f"To: {dt_ends_getted}\n"
-            f"Error: {response.text}")
+            f"From: {datetime_starts}\n"
+            f"To: {datetime_ends}\n"
+            f"Error: {response.text}\n\n"
+            f"! Shift Removed !")
 
 
 def notification(loc_pos_id: str, objekt: dict, shifted: str, text: str = '') -> None:
@@ -59,36 +70,31 @@ def notification(loc_pos_id: str, objekt: dict, shifted: str, text: str = '') ->
     isotime_ends = objekt["ends_at"]
     datetime_starts = datetime.fromisoformat(isotime_starts).replace(tzinfo=None)
     datetime_ends = datetime.fromisoformat(isotime_ends).replace(tzinfo=None)
-    dts: tuple = (datetime_starts, datetime_ends)
+    datetimes: tuple = (datetime_starts, datetime_ends)
     locations = work_data.converter(today=datetime.now().strftime("%d.%m.%Y"))
     for location in locations:
         if location["id"] == loc_pos_id:
-            if dts in location["dates"]:
-                location_name = location["name"]
+            if datetimes in location["dates"]:
                 location_fullname = location["fullname"]
-                if shifted == "True" or shifted == "Unknown":
-                    shifted_calendar_day = datetime_starts.strftime("%d.%m.%Y")
-                    shifted_starts = datetime_starts.strftime("%H:%M")
-                    shifted_ends = datetime_ends.strftime("%H:%M")
-                    remove_day_string = f"{location_name}/{shifted_calendar_day}/{shifted_starts}-{shifted_ends}"
-                    work_data.remove_days(remove_day_string)
-                    if shifted == "True":
-                        requests.post(
-                            f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_MY_ID}&text="
-                            f"✅ Successfully shifted on: {location_fullname}\n"
-                            f"From: {datetime_starts}\n"
-                            f"To: {datetime_ends}" + text)
-                    elif shifted == "Unknown":
-                        requests.post(
-                            f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_MY_ID}&text="
-                            f"⚠️ Maybe shifted on: {location_fullname}\n"
-                            f"From: {datetime_starts}\n"
-                            f"To: {datetime_ends}" + text)
+                if shifted == "True":
+                    remove_day_request(location["name"], datetimes)
+                    requests.post(
+                        f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_MY_ID}&text="
+                        f"✅ Successfully shifted on: {location_fullname}\n"
+                        f"From: {datetime_starts}\n"
+                        f"To: {datetime_ends}" + text)
+                elif shifted == "Unknown":
+                    requests.post(
+                        f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_MY_ID}&text="
+                        f"⚠️ Maybe shifted on: {location_fullname}\n"
+                        f"From: {datetime_starts}\n"
+                        f"To: {datetime_ends}" + text)
                 elif shifted == "False":
-                    requests.post(f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_MY_ID}&text="
-                                  f"❌ Unsuccessfully shifted on: {location_fullname}\n"
-                                  f"From: {datetime_starts}\n"
-                                  f"To: {datetime_ends}" + text)
+                    requests.post(
+                        f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_MY_ID}&text="
+                        f"❌ Unsuccessfully shifted on: {location_fullname}\n"
+                        f"From: {datetime_starts}\n"
+                        f"To: {datetime_ends}" + text)
 
 
 def newsfeeds_checker() -> bool:
