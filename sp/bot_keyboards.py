@@ -1,4 +1,4 @@
-# Version 2.0.0 release
+# Version 2.0.1 release
 
 from configparser import ConfigParser
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, KeyboardButton, ReplyKeyboardMarkup
@@ -27,7 +27,7 @@ async def create_settings_keyboard(config: ConfigParser) -> InlineKeyboardMarkup
     open_shifts_status: bool = config.getboolean("PROGRAM_CONFIG", "open_shifts_status")
     shift_offers_status: bool = config.getboolean("PROGRAM_CONFIG", "shift_offers_status")
     news_status: bool = config.getboolean("PROGRAM_CONFIG", "news_status")
-    sleeptime: int = config.getint("PROGRAM_CONFIG", "sleeptime")
+    sleeptime: float = config.getfloat("PROGRAM_CONFIG", "sleeptime")
 
     status_template: str = "Status: {emoji}"
     other_statuses_templates: list = ["Open Shifts: {emoji}", "Shift Offers: {emoji}", "News: {emoji}"]
@@ -45,12 +45,12 @@ async def create_settings_keyboard(config: ConfigParser) -> InlineKeyboardMarkup
         else:
             other_statuses_templates[index] = other_statuses_templates[index].format(emoji="❌")
 
-    if sleeptime == 1:
-        speed_template = speed_template.format(emoji="🐝")
-    elif sleeptime == 5:
-        speed_template = speed_template.format(emoji="🐢")
+    if sleeptime == 0.3:
+        speed_template = speed_template.format(emoji="🐝 (0.3 sec)")
+    elif sleeptime == 1.0:
+        speed_template = speed_template.format(emoji="🐢(1.0 sec)")
     else:
-        raise Exception("sleeptime must be 1 or 5")  # Другого значения быть не может
+        raise Exception("sleeptime must be 0.3 or 1.0")  # Другого значения быть не может
 
     settings_keyboard = InlineKeyboardBuilder()
     status_btn = InlineKeyboardButton(text=status_template,
