@@ -1,4 +1,4 @@
-# Version 1.9.5 release
+# Version 1.9.6 release
 
 import configparser
 import json
@@ -25,7 +25,7 @@ def api_data_checker(position_id_getted, dts: tuple) -> list:
     for location in locations:
         if location["id"] == position_id_getted:
             if dts in location["dates"]:
-                return [True, location["fullname"]]
+                return [True, location]
             else:
                 return [False, None]
     else:
@@ -40,29 +40,42 @@ def remove_day_request(location_name: str, datetimes: tuple):
     work_data.remove_days(remove_day_string)
 
 
-def join_or_accept_shift(shift_id, location_name: str, shift_type: str, datetimes: tuple) -> None:
+def join_or_accept_shift(shift_id: int, location: dict, shift_type: str, datetimes: tuple) -> None:
     datetime_starts: datetime = datetimes[0].replace(tzinfo=None)
     datetime_ends: datetime = datetimes[1].replace(tzinfo=None)
     if shift_type == "join":
-        time.sleep(3)  # bug check
         response = requests.post(SITE + "/api/v1/requests/join",
                                  params={"user_email": shyftplan_email, "authentication_token": shyftplan_token,
                                          "company_id": COMPANY_ID, "shift_id": shift_id})
-    else:
+        json_response = json.loads(response.text)
+        if "conflicts" in json_response:
+            remove_day_request(location["name"], datetimes)
+            requests.post(
+                f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_MY_ID}&text="
+                f"📕 Shift was removed from your list:\n"
+                f"Location: {location['fullname']}\n"
+                f"From: {datetime_starts}\n"
+                f"To: {datetime_ends}\n"
+                f"Information: You already have a shift at the same time")
+        elif "invalid" in json_response:
+            requests.post(
+                f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_MY_ID}&text="
+                f"👍 Ничего необычного не происходит, просто смена в данный момент пытается забронироваться, "
+                f"вскоре я отключу эти уведомления, лишь хочу убедиться что нету неожиданных багов "
+                f"или других error кодов\n"
+                f"Location: {location['fullname']}\n"
+                f"From: {datetime_starts}\n"
+                f"To: {datetime_ends}\n\n"
+                f"Код ошибки на всякий случай, если необычный, советую скинуть разработчику: {response.text}")
+    elif shift_type == "replace":
         response = requests.post(SITE + "/api/v1/requests/replace/accept",
                                  params={"user_email": shyftplan_email, "authentication_token": shyftplan_token,
                                          "company_id": COMPANY_ID, "id": shift_id, "ignore_conflicts": "false"})
-
-    json_response = json.loads(response.text)
-    if "invalid" in json_response or "conflicts" in json_response:
-        remove_day_request(location_name, datetimes)
-        requests.post(
-            f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_MY_ID}&text="
-            f"❌ Unsuccessfully shifted on: {location_name}\n"
-            f"From: {datetime_starts}\n"
-            f"To: {datetime_ends}\n"
-            f"Error: {response.text}\n\n"
-            f"! Shift Removed !")
+        if "error" in response:
+            requests.post(
+                f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_MY_ID}&text="
+                f"! DEVELOPER INFO, MAYBE BUG (В ЭТОМ МЕТОДЕ НЕ ДОЛЖНО БЫТЬ ОШИБОК) !\n"
+                f"Response: {response.text}")
 
 
 def notification(loc_pos_id: str, objekt: dict, shifted: str, text: str = '') -> None:
@@ -217,7 +230,7 @@ while True:
     open_shifts_status: bool = config.getboolean("PROGRAM_CONFIG", "open_shifts_status")
     shift_offers_status: bool = config.getboolean("PROGRAM_CONFIG", "shift_offers_status")
     news_status: bool = config.getboolean("PROGRAM_CONFIG", "news_status")
-    sleeptime: int = config.getint("PROGRAM_CONFIG", "sleeptime")
+    sleeptime: float = config.getfloat("PROGRAM_CONFIG", "sleeptime")
 
     if status and (open_shifts_status or shift_offers_status or news_status):
         shyftplan_email: str = config.get("AUTH_CONFIG", "shyftplan_email")
