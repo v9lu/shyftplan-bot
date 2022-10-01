@@ -1,4 +1,4 @@
-# Version 2.0.0 release
+# Version 2.0.1 release
 
 import configparser
 from aiogram import F, Router, types
@@ -39,11 +39,11 @@ async def change_config(call: types.CallbackQuery) -> None:
         reversed_bool = not config.getboolean("PROGRAM_CONFIG", call.data)
         config.set("PROGRAM_CONFIG", call.data, str(reversed_bool))
     else:
-        sleeptime_original = config.get("PROGRAM_CONFIG", "sleeptime")
-        if sleeptime_original == "5":
-            sleeptime_new = "1"
+        sleeptime_original = config.getfloat("PROGRAM_CONFIG", "sleeptime")
+        if sleeptime_original == 1.0:
+            sleeptime_new = "0.3"
         else:
-            sleeptime_new = "5"
+            sleeptime_new = "1.0"
         config.set("PROGRAM_CONFIG", "sleeptime", sleeptime_new)
 
     with open("settings.ini", 'w') as configfile:
