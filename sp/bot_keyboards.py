@@ -1,4 +1,4 @@
-# Version 2.0.1 release
+# Version 2.0.2 release
 
 from configparser import ConfigParser
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, KeyboardButton, ReplyKeyboardMarkup
@@ -48,7 +48,7 @@ async def create_settings_keyboard(config: ConfigParser) -> InlineKeyboardMarkup
     if sleeptime == 0.3:
         speed_template = speed_template.format(emoji="🐝 (0.3 sec)")
     elif sleeptime == 1.0:
-        speed_template = speed_template.format(emoji="🐢(1.0 sec)")
+        speed_template = speed_template.format(emoji="🐢 (1.0 sec)")
     else:
         raise Exception("sleeptime must be 0.3 or 1.0")  # Другого значения быть не может
 
