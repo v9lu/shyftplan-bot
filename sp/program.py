@@ -1,4 +1,4 @@
-# Version 1.9.6 release
+# Version 1.9.7 release
 
 import configparser
 import json
@@ -45,18 +45,46 @@ def join_or_accept_shift(shift_id: int, location: dict, shift_type: str, datetim
     datetime_ends: datetime = datetimes[1].replace(tzinfo=None)
     if shift_type == "join":
         response = requests.post(SITE + "/api/v1/requests/join",
-                                 params={"user_email": shyftplan_email, "authentication_token": shyftplan_token,
-                                         "company_id": COMPANY_ID, "shift_id": shift_id})
+                                 params={"user_email": shyftplan_email,
+                                         "authentication_token": shyftplan_token,
+                                         "company_id": COMPANY_ID,
+                                         "shift_id": shift_id})
         json_response = json.loads(response.text)
         if "conflicts" in json_response:
             remove_day_request(location["name"], datetimes)
-            requests.post(
-                f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_MY_ID}&text="
-                f"📕 Shift was removed from your list:\n"
-                f"Location: {location['fullname']}\n"
-                f"From: {datetime_starts}\n"
-                f"To: {datetime_ends}\n"
-                f"Information: You already have a shift at the same time")
+            response = requests.get(SITE + "/api/v1/evaluations",
+                                    params={"user_email": shyftplan_email,
+                                            "authentication_token": shyftplan_token,
+                                            "page": 1,
+                                            "per_page": 1,
+                                            "starts_at": datetimes[0].isoformat(),  # tz +02:00
+                                            "ends_at": datetimes[1].isoformat(),  # tz +02:00
+                                            "state": "no_evaluation",
+                                            "employment_id": shyftplan_my_employee_id})
+            page_json = json.loads(response.text)
+            if len(page_json["items"]) > 0:
+                if page_json["items"]["locations_position_id"] == location["id"]:
+                    requests.post(
+                        f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_MY_ID}&text="
+                        f"✅ Shift was accepted on: {location['fullname']}\n"
+                        f"From: {datetime_starts}\n"
+                        f"To: {datetime_ends}")
+                else:
+                    requests.post(
+                        f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_MY_ID}&text="
+                        f"📕 Shift was removed from your list:\n"
+                        f"Location: {location['fullname']}\n"
+                        f"From: {datetime_starts}\n"
+                        f"To: {datetime_ends}\n"
+                        f"Information: You already have a shift at the same time")
+            else:
+                requests.post(
+                    f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_MY_ID}&text="
+                    f"📕 Shift was removed from your list:\n"
+                    f"Location: {location['fullname']}\n"
+                    f"From: {datetime_starts}\n"
+                    f"To: {datetime_ends}\n"
+                    f"Information: You already have a shift at the same time")
         elif "invalid" in json_response:
             requests.post(
                 f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_MY_ID}&text="
@@ -69,8 +97,11 @@ def join_or_accept_shift(shift_id: int, location: dict, shift_type: str, datetim
                 f"Код ошибки на всякий случай, если необычный, советую скинуть разработчику: {response.text}")
     elif shift_type == "replace":
         response = requests.post(SITE + "/api/v1/requests/replace/accept",
-                                 params={"user_email": shyftplan_email, "authentication_token": shyftplan_token,
-                                         "company_id": COMPANY_ID, "id": shift_id, "ignore_conflicts": "false"})
+                                 params={"user_email": shyftplan_email,
+                                         "authentication_token": shyftplan_token,
+                                         "company_id": COMPANY_ID,
+                                         "id": shift_id,
+                                         "ignore_conflicts": "false"})
         if "error" in response:
             requests.post(
                 f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_MY_ID}&text="
@@ -99,7 +130,7 @@ def notification(loc_pos_id: str, objekt: dict, shifted: str, text: str = '') ->
                 elif shifted == "Unknown":
                     requests.post(
                         f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_MY_ID}&text="
-                        f"⚠️ Maybe shifted on: {location_fullname}\n"
+                        f"⚠️ Trying to shift on: {location_fullname}\n"
                         f"From: {datetime_starts}\n"
                         f"To: {datetime_ends}" + text)
                 elif shifted == "False":
@@ -112,8 +143,11 @@ def notification(loc_pos_id: str, objekt: dict, shifted: str, text: str = '') ->
 
 def newsfeeds_checker() -> bool:
     response = requests.get(SITE + "/api/v1/newsfeeds",
-                            params={"user_email": shyftplan_email, "authentication_token": shyftplan_token,
-                                    "company_id": COMPANY_ID, "page": 1, "per_page": 1})
+                            params={"user_email": shyftplan_email,
+                                    "authentication_token": shyftplan_token,
+                                    "company_id": COMPANY_ID,
+                                    "page": 1,
+                                    "per_page": 1})
     page_json = json.loads(response.text)
     if 'error' in page_json:
         if page_json["error"] == "401 Unauthorized":
@@ -131,8 +165,8 @@ def newsfeeds_checker() -> bool:
         if not db.newsfeeds_is_old_id(sqlite3.connect("database.db"), json_items["id"]):
             if json_items["key"] == "request.swap_request" and shift_offers_status:
                 location_position_id_getted = str(json_items["metadata"]["locations_position_ids"][0])
-                isotime_starts_getted = json_items["objekt"]["shift"]["starts_at"]
-                isotime_ends_getted = json_items["objekt"]["shift"]["ends_at"]
+                isotime_starts_getted = json_items["objekt"]["shift"]["starts_at"]  # tz +02:00
+                isotime_ends_getted = json_items["objekt"]["shift"]["ends_at"]  # tz +02:00
                 dt_starts_getted = datetime.fromisoformat(isotime_starts_getted).replace(tzinfo=None)
                 dt_ends_getted = datetime.fromisoformat(isotime_ends_getted).replace(tzinfo=None)
                 adc_response = api_data_checker(location_position_id_getted, (dt_starts_getted, dt_ends_getted))
@@ -140,9 +174,11 @@ def newsfeeds_checker() -> bool:
                     response = requests.get(SITE + "/api/v1/evaluations",
                                             params={"user_email": shyftplan_email,
                                                     "authentication_token": shyftplan_token,
-                                                    "page": 1, "per_page": 1,
+                                                    "page": 1,
+                                                    "per_page": 1,
                                                     "starts_at": (dt_starts_getted - timedelta(hours=4)).isoformat(),
-                                                    "ends_at": isotime_starts_getted, "state": "no_evaluation",
+                                                    "ends_at": isotime_starts_getted,
+                                                    "state": "no_evaluation",
                                                     "employment_id": shyftplan_my_employee_id})
                     page_json = json.loads(response.text)
                     if len(page_json["items"]) > 0:  # Если уже что-то забронированно между часами
