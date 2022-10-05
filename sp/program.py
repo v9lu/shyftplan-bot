@@ -20,10 +20,10 @@ COMPANY_ID = 50272
 db.initialization(conn=sqlite3.connect("database.db"))
 
 
-def api_data_checker(position_id_getted, dts: tuple) -> list:
+def api_data_checker(loc_pos_id: int, dts: tuple) -> list:
     locations = work_data.converter(today=datetime.now().strftime("%d.%m.%Y"))
     for location in locations:
-        if location["id"] == position_id_getted:
+        if location["id"] == loc_pos_id:
             if dts in location["dates"]:
                 return [True, location]
             else:
@@ -63,7 +63,7 @@ def join_or_accept_shift(shift_id: int, location: dict, shift_type: str, datetim
                                             "employment_id": shyftplan_my_employee_id})
             page_json = json.loads(response.text)
             if len(page_json["items"]) > 0:
-                if page_json["items"]["locations_position_id"] == location["id"]:
+                if page_json["items"]["locations_position_id"] == int(location["id"]):
                     requests.post(
                         f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_MY_ID}&text="
                         f"✅ Shift was accepted on: {location['fullname']}\n"
@@ -109,7 +109,7 @@ def join_or_accept_shift(shift_id: int, location: dict, shift_type: str, datetim
                 f"Response: {response.text}")
 
 
-def notification(loc_pos_id: str, objekt: dict, shifted: str, text: str = '') -> None:
+def notification(loc_pos_id: int, objekt: dict, shifted: str, text: str = '') -> None:
     isotime_starts = objekt["starts_at"]
     isotime_ends = objekt["ends_at"]
     datetime_starts = datetime.fromisoformat(isotime_starts).replace(tzinfo=None)
@@ -164,46 +164,48 @@ def newsfeeds_checker() -> bool:
         json_items = page_json["items"][0]
         if not db.newsfeeds_is_old_id(sqlite3.connect("database.db"), json_items["id"]):
             if json_items["key"] == "request.swap_request" and shift_offers_status:
-                location_position_id_getted = str(json_items["metadata"]["locations_position_ids"][0])
-                isotime_starts_getted = json_items["objekt"]["shift"]["starts_at"]  # tz +02:00
-                isotime_ends_getted = json_items["objekt"]["shift"]["ends_at"]  # tz +02:00
-                dt_starts_getted = datetime.fromisoformat(isotime_starts_getted).replace(tzinfo=None)
-                dt_ends_getted = datetime.fromisoformat(isotime_ends_getted).replace(tzinfo=None)
-                adc_response = api_data_checker(location_position_id_getted, (dt_starts_getted, dt_ends_getted))
-                if adc_response[0]:
+                loc_pos_id: int = json_items["metadata"]["locations_position_ids"][0]
+                isotime_starts: str = json_items["objekt"]["shift"]["starts_at"]  # tz +02:00
+                isotime_ends: str = json_items["objekt"]["shift"]["ends_at"]  # tz +02:00
+                datetime_starts = datetime.fromisoformat(isotime_starts).replace(tzinfo=None)
+                datetime_ends = datetime.fromisoformat(isotime_ends).replace(tzinfo=None)
+                adc_response = api_data_checker(loc_pos_id, (datetime_starts, datetime_ends))
+                adc_response_code = adc_response[0]
+                adc_response_loc = adc_response[1]
+                if adc_response_code:
                     response = requests.get(SITE + "/api/v1/evaluations",
                                             params={"user_email": shyftplan_email,
                                                     "authentication_token": shyftplan_token,
                                                     "page": 1,
                                                     "per_page": 1,
-                                                    "starts_at": (dt_starts_getted - timedelta(hours=4)).isoformat(),
-                                                    "ends_at": isotime_starts_getted,
+                                                    "starts_at": (datetime_starts - timedelta(hours=4)).isoformat(),
+                                                    "ends_at": isotime_starts,
                                                     "state": "no_evaluation",
                                                     "employment_id": shyftplan_my_employee_id})
                     page_json = json.loads(response.text)
                     if len(page_json["items"]) > 0:  # Если уже что-то забронированно между часами
                         evaluation_ends_at = page_json["items"][0]["evaluation_ends_at"]
-                        if evaluation_ends_at == isotime_starts_getted or \
-                                datetime.now() + timedelta(hours=2) < dt_starts_getted:
+                        if evaluation_ends_at == isotime_starts or \
+                                datetime.now() + timedelta(hours=2) < datetime_starts:
                             join_or_accept_shift(json_items["objekt_id"],
-                                                 adc_response[1],
+                                                 adc_response_loc,
                                                  'replace',
-                                                 (dt_starts_getted, dt_ends_getted))
-                    elif datetime.now() + timedelta(hours=2) < dt_starts_getted:
+                                                 (datetime_starts, datetime_ends))
+                    elif datetime.now() + timedelta(hours=2) < datetime_starts:
                         join_or_accept_shift(json_items["objekt_id"],
-                                             adc_response[1],
+                                             adc_response_loc,
                                              'replace',
-                                             (dt_starts_getted, dt_ends_getted))
+                                             (datetime_starts, datetime_ends))
             elif json_items["key"] == "request.swap_auto_accepted" and json_items["user_id"] == shyftplan_my_user_id:
-                notification(loc_pos_id=str(json_items["objekt"]["locations_position_id"]),
+                notification(loc_pos_id=json_items["objekt"]["locations_position_id"],
                              objekt=json_items["objekt"],
                              shifted="True")
             elif json_items["key"] == "request.shift_application" and json_items["user_id"] == shyftplan_my_user_id:
-                notification(loc_pos_id=str(json_items["metadata"]["managed_locations_position_ids"][0]),
+                notification(loc_pos_id=json_items["metadata"]["managed_locations_position_ids"][0],
                              objekt=json_items["objekt"]["shift"],
                              shifted="Unknown")
             elif json_items["key"] == "request.refused":
-                notification(loc_pos_id=str(json_items["objekt"]["locations_position_id"]),
+                notification(loc_pos_id=json_items["objekt"]["locations_position_id"],
                              objekt=json_items["objekt"],
                              shifted="False",
                              text="\nError: Refused")
@@ -247,14 +249,16 @@ def open_shifts_checker() -> bool:
     else:
         json_items = page_json["items"]
         for item in json_items:
-            json_position_id_getted = str(item["locations_position_id"])
+            json_pos_id = item["locations_position_id"]
             isotime_starts = item["starts_at"]
             isotime_ends = item["ends_at"]
-            dt_starts_getted = datetime.fromisoformat(isotime_starts).replace(tzinfo=None)
-            dt_ends_getted = datetime.fromisoformat(isotime_ends).replace(tzinfo=None)
-            adc_response = api_data_checker(json_position_id_getted, (dt_starts_getted, dt_ends_getted))
-            if adc_response[0]:
-                join_or_accept_shift(item["id"], adc_response[1], "join", (dt_starts_getted, dt_ends_getted))
+            datetime_starts = datetime.fromisoformat(isotime_starts).replace(tzinfo=None)
+            datetime_ends = datetime.fromisoformat(isotime_ends).replace(tzinfo=None)
+            adc_response = api_data_checker(json_pos_id, (datetime_starts, datetime_ends))
+            adc_response_code = adc_response[0]
+            adc_response_loc = adc_response[1]
+            if adc_response_code:
+                join_or_accept_shift(item["id"], adc_response_loc, "join", (datetime_starts, datetime_ends))
         return True
 
 
