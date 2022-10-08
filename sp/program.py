@@ -1,4 +1,4 @@
-# Version 1.9.7 release
+# Version 1.9.9 release
 
 import configparser
 import json
@@ -61,9 +61,9 @@ def join_or_accept_shift(shift_id: int, location: dict, shift_type: str, datetim
                                             "ends_at": datetimes[1].isoformat(),  # tz +02:00
                                             "state": "no_evaluation",
                                             "employment_id": shyftplan_my_employee_id})
-            page_json = json.loads(response.text)
-            if len(page_json["items"]) > 0:
-                if page_json["items"]["locations_position_id"] == int(location["id"]):
+            json_response = json.loads(response.text)
+            if len(json_response["items"]) > 0:
+                if json_response["items"][0]["locations_position_id"] == location["id"]:
                     requests.post(
                         f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_MY_ID}&text="
                         f"✅ Shift was accepted on: {location['fullname']}\n"
