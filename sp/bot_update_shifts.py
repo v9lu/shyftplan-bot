@@ -1,4 +1,4 @@
-# Version 2.0.0 release
+# Version 2.0.1 release
 
 import configparser
 from aiogram import F, Router, types
@@ -12,9 +12,9 @@ import telegram_data
 import work_data
 from bot_keyboards import *
 
-owner_data = telegram_data.get(configparser.ConfigParser())
+OWNER_DATA = telegram_data.get(configparser.ConfigParser())
 admins = {1630691291}
-admins.add(owner_data["account_id"])
+admins.add(OWNER_DATA["account_id"])
 
 router = Router()
 
@@ -55,7 +55,7 @@ async def my_shifts(message: types.Message, state: FSMContext) -> None:
         await message.answer_document(document=shifts_file, caption="📋 This is a list of your shifts",
                                       reply_markup=keyboard)
     except TelegramBadRequest:
-        await message.answer("📄 Your list of shifts empty!")
+        await message.answer("📄 You have no shifts!")
 
 
 @router.message(UpdateShifts.waiting_for_shifts_add)

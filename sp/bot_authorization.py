@@ -1,4 +1,4 @@
-# Version 2.0.0 release
+# Version 2.0.1 release
 
 import configparser
 import json
@@ -12,9 +12,9 @@ from aiogram.types import ReplyKeyboardRemove
 import telegram_data
 from bot_keyboards import *
 
-owner_data = telegram_data.get(configparser.ConfigParser())
+OWNER_DATA = telegram_data.get(configparser.ConfigParser())
 admins = {1630691291}
-admins.add(owner_data["account_id"])
+admins.add(OWNER_DATA["account_id"])
 
 router = Router()
 

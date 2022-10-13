@@ -1,4 +1,4 @@
-# Version 2.0.0 release
+# Version 2.0.1 release
 
 import asyncio
 import configparser
@@ -10,13 +10,12 @@ import bot_authorization
 import bot_update_shifts
 import telegram_data
 
-owner_data = telegram_data.get(configparser.ConfigParser())
-TG_BOT_API_TOKEN = owner_data["bot_token"]
+OWNER_DATA = telegram_data.get(configparser.ConfigParser())
 
 
 async def main():
     logging.basicConfig(level=logging.INFO)
-    bot = Bot(token=TG_BOT_API_TOKEN)
+    bot = Bot(token=OWNER_DATA["bot_token"])
     dp = Dispatcher()
 
     dp.include_router(bot_common.router)
