@@ -1,4 +1,4 @@
-# Version 2.0.1 release
+# Version 2.0.2 release
 
 import configparser
 import json
@@ -44,13 +44,13 @@ async def authorization(config: ConfigParser, email: str, password: str = None, 
                                     params={"user_email": email,
                                             "authentication_token": token})
             json_items = json.loads(response.text)
-            my_employee_id = str(json_items["items"][0]["id"])
-            my_user_id = str(json_items["items"][0]["user_id"])
+            employee_id = str(json_items["items"][0]["id"])
+            user_id = str(json_items["items"][0]["user_id"])
             config.read("settings.ini")
             config.set("AUTH_CONFIG", "shyftplan_email", email)
             config.set("AUTH_CONFIG", "shyftplan_token", token)
-            config.set("AUTH_CONFIG", "shyftplan_my_employee_id", my_employee_id)
-            config.set("AUTH_CONFIG", "shyftplan_my_user_id", my_user_id)
+            config.set("AUTH_CONFIG", "shyftplan_employee_id", employee_id)
+            config.set("AUTH_CONFIG", "shyftplan_user_id", user_id)
             with open("settings.ini", 'w') as configfile:
                 config.write(configfile)
             return True
