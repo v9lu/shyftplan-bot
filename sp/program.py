@@ -84,16 +84,6 @@ def join_or_accept_shift(shift_id: int, location: dict, shift_type: str, datetim
                     f"From: {datetime_starts}\n"
                     f"To: {datetime_ends}\n"
                     f"Information: You already have a shift at the same time")
-        elif "invalid" in json_response:
-            requests.post(
-                f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_MY_ID}&text="
-                f"👍 Ничего необычного не происходит, просто смена в данный момент пытается забронироваться, "
-                f"вскоре я отключу эти уведомления, лишь хочу убедиться что нету неожиданных багов "
-                f"или других error кодов\n"
-                f"Location: {location['fullname']}\n"
-                f"From: {datetime_starts}\n"
-                f"To: {datetime_ends}\n\n"
-                f"Код ошибки на всякий случай, если необычный, советую скинуть разработчику: {response.text}")
     elif shift_type == "replace":
         response = requests.post(SITE + "/api/v1/requests/replace/accept",
                                  params={"user_email": shyftplan_email,
