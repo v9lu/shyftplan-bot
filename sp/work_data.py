@@ -1,7 +1,28 @@
-# Version 1.2.11 release
+# Version 1.2.12 release
 
+import copy
 from datetime import datetime, timedelta
 from unidecode import unidecode
+
+locations_sample = [{"name": "szarych", "fullname": "Szarych Szeregów 11", "id": 163056, "dates": []},
+                    {"name": "hawajska", "fullname": "Hawajska 11", "id": 165605, "dates": []},
+                    {"name": "lirowa", "fullname": "Lirowa 26", "id": 165606, "dates": []},
+                    {"name": "tarnowiecka", "fullname": "Tarnowiecka 13", "id": 165607, "dates": []},
+                    {"name": "kamienna", "fullname": "Kamienna 1", "id": 165608, "dates": []},
+                    {"name": "miedzynarodowa", "fullname": "Międzynarodowa 42", "id": 166576, "dates": []},
+                    {"name": "sikorskiego", "fullname": "Sikorskiego 3A", "id": 166585, "dates": []},
+                    {"name": "solidarnosci", "fullname": "Solidarności 155", "id": 166586, "dates": []},
+                    {"name": "herbu", "fullname": "Herbu Janina 5", "id": 166587, "dates": []},
+                    {"name": "czluchowska", "fullname": "Człuchowska 35", "id": 168928, "dates": []},
+                    {"name": "rydygiera", "fullname": "Rydygiera 13", "id": 169661, "dates": []},
+                    {"name": "europlex", "fullname": "Europlex (Puławska 17)", "id": 170617, "dates": []},
+                    {"name": "grochowskiego", "fullname": "Grochowskiego 5", "id": 170856, "dates": []},
+                    {"name": "dolna", "fullname": "Dolna 41", "id": 171705, "dates": []},
+                    {"name": "sielecka", "fullname": "Sielecka 35", "id": 174110, "dates": []},
+                    {"name": "lekka", "fullname": "Lekka 3", "id": 174113, "dates": []},
+                    {"name": "elektryczna", "fullname": "Elektryczna 2", "id": 174114, "dates": []},
+                    {"name": "konstruktorska", "fullname": "Konstruktorska 13A", "id": 174153, "dates": []},
+                    {"name": "grenadierow", "fullname": "Grenadierów 11", "id": 177820, "dates": []}]
 
 
 def take_date(element):
@@ -17,25 +38,7 @@ def raw() -> str:
 
 
 def converter(today: str) -> list:
-    locations = [{"name": "szarych", "fullname": "Szarych Szeregów 11", "id": 163056, "dates": []},
-                 {"name": "hawajska", "fullname": "Hawajska 11", "id": 165605, "dates": []},
-                 {"name": "lirowa", "fullname": "Lirowa 26", "id": 165606, "dates": []},
-                 {"name": "tarnowiecka", "fullname": "Tarnowiecka 13", "id": 165607, "dates": []},
-                 {"name": "kamienna", "fullname": "Kamienna 1", "id": 165608, "dates": []},
-                 {"name": "miedzynarodowa", "fullname": "Międzynarodowa 42", "id": 166576, "dates": []},
-                 {"name": "sikorskiego", "fullname": "Sikorskiego 3A", "id": 166585, "dates": []},
-                 {"name": "solidarnosci", "fullname": "Solidarności 155", "id": 166586, "dates": []},
-                 {"name": "herbu", "fullname": "Herbu Janina 5", "id": 166587, "dates": []},
-                 {"name": "czluchowska", "fullname": "Człuchowska 35", "id": 168928, "dates": []},
-                 {"name": "rydygiera", "fullname": "Rydygiera 13", "id": 169661, "dates": []},
-                 {"name": "europlex", "fullname": "Europlex (Puławska 17)", "id": 170617, "dates": []},
-                 {"name": "grochowskiego", "fullname": "Grochowskiego 5", "id": 170856, "dates": []},
-                 {"name": "dolna", "fullname": "Dolna 41", "id": 171705, "dates": []},
-                 {"name": "sielecka", "fullname": "Sielecka 35", "id": 174110, "dates": []},
-                 {"name": "lekka", "fullname": "Lekka 3", "id": 174113, "dates": []},
-                 {"name": "elektryczna", "fullname": "Elektryczna 2", "id": 174114, "dates": []},
-                 {"name": "konstruktorska", "fullname": "Konstruktorska 13A", "id": 174153, "dates": []},
-                 {"name": "grenadierow", "fullname": "Grenadierów 11", "id": 177820, "dates": []}]
+    locations = copy.deepcopy(locations_sample)
 
     # OPEN FILE
     with open("work_data.txt", "r") as work_data_file:
@@ -71,7 +74,7 @@ def converter(today: str) -> list:
     with open("work_data.txt", "w") as work_data_file:
         work_data_file.writelines('\n'.join(work_data))
 
-    # WORK WITH LOCATIONS LIST #
+    # WORK WITH LOCATIONS LIST
     for index in range(len(locations)):
         for work_day in work_data:
             work_day = work_day.split("/")  # "name/date/15-19" > ["name", "date", "15-19"]
@@ -95,26 +98,7 @@ def converter(today: str) -> list:
 
 
 def user_converter(work_data_extracted_string: str) -> list:
-    locations = [{"name": "szarych", "fullname": "Szarych Szeregów 11", "id": 163056, "dates": []},
-                 {"name": "hawajska", "fullname": "Hawajska 11", "id": 165605, "dates": []},
-                 {"name": "lirowa", "fullname": "Lirowa 26", "id": 165606, "dates": []},
-                 {"name": "tarnowiecka", "fullname": "Tarnowiecka 13", "id": 165607, "dates": []},
-                 {"name": "kamienna", "fullname": "Kamienna 1", "id": 165608, "dates": []},
-                 {"name": "miedzynarodowa", "fullname": "Międzynarodowa 42", "id": 166576, "dates": []},
-                 {"name": "sikorskiego", "fullname": "Sikorskiego 3A", "id": 166585, "dates": []},
-                 {"name": "solidarnosci", "fullname": "Solidarności 155", "id": 166586, "dates": []},
-                 {"name": "herbu", "fullname": "Herbu Janina 5", "id": 166587, "dates": []},
-                 {"name": "czluchowska", "fullname": "Człuchowska 35", "id": 168928, "dates": []},
-                 {"name": "rydygiera", "fullname": "Rydygiera 13", "id": 169661, "dates": []},
-                 {"name": "europlex", "fullname": "Europlex (Puławska 17)", "id": 170617, "dates": []},
-                 {"name": "grochowskiego", "fullname": "Grochowskiego 5", "id": 170856, "dates": []},
-                 {"name": "dolna", "fullname": "Dolna 41", "id": 171705, "dates": []},
-                 {"name": "sielecka", "fullname": "Sielecka 35", "id": 174110, "dates": []},
-                 {"name": "lekka", "fullname": "Lekka 3", "id": 174113, "dates": []},
-                 {"name": "elektryczna", "fullname": "Elektryczna 2", "id": 174114, "dates": []},
-                 {"name": "konstruktorska", "fullname": "Konstruktorska 13A", "id": 174153, "dates": []},
-                 {"name": "grenadierow", "fullname": "Grenadierów 11", "id": 177820, "dates": []}]
-
+    locations = copy.deepcopy(locations_sample)
     work_data_extracted = work_data_extracted_string.split()
     for index in range(len(locations)):
         for work_day in work_data_extracted:
@@ -149,6 +133,7 @@ def add_days(days: str) -> None:
     for day in days:
         list_from_day = day.split("/")
         location_calendar_day = '/'.join(list_from_day[:2])
+
         if day not in work_data_extracted and location_calendar_day not in work_data_extracted_string:
             work_data_extracted.append(day)
         elif location_calendar_day in work_data_extracted_string:
