@@ -1,4 +1,4 @@
-# Version 2.0.1 release
+# Version 2.0.2 release
 
 import configparser
 from aiogram import F, Router, types
@@ -8,14 +8,13 @@ from aiogram.filters.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram.types import FSInputFile
 
-import telegram_data
+import config_data
 import work_data
 from bot_keyboards import *
 
-OWNER_DATA = telegram_data.get(configparser.ConfigParser())
-admins = {1630691291}
-admins.add(OWNER_DATA["account_id"])
 
+admins = {1630691291}
+admins.add(config_data.get_user(configparser.ConfigParser())["telegram_id"])
 router = Router()
 
 
