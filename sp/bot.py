@@ -1,4 +1,4 @@
-# Version 2.0.1 release
+# Version 2.0.2 release
 
 import asyncio
 import configparser
@@ -8,14 +8,12 @@ from aiogram import Bot, Dispatcher
 import bot_common
 import bot_authorization
 import bot_update_shifts
-import telegram_data
-
-OWNER_DATA = telegram_data.get(configparser.ConfigParser())
+import config_data
 
 
 async def main():
     logging.basicConfig(level=logging.INFO)
-    bot = Bot(token=OWNER_DATA["bot_token"])
+    bot = Bot(token=config_data.get_bot_token(configparser.ConfigParser()))
     dp = Dispatcher()
 
     dp.include_router(bot_common.router)
