@@ -1,22 +1,23 @@
-# Version 1.10.0 release
+# Version 1.11.0 release
 
 import configparser
 import json
 import requests
 import time
 from datetime import datetime, timedelta
+import mysql.connector as mysql
 
+import config_data
 import db
-import telegram_data
 import work_data
 
-owner_data = telegram_data.get(configparser.ConfigParser())
-TG_MY_ID = owner_data["account_id"]
-TG_BOT_API_TOKEN = owner_data["bot_token"]
+
+database_data = config_data.get_db(configparser.ConfigParser())
+user_data = config_data.get_user(configparser.ConfigParser())
+TG_MY_ID: int = user_data["telegram_id"]
+TG_BOT_API_TOKEN = config_data.get_bot_token(configparser.ConfigParser())
 SITE = "https://shyftplan.com"
 COMPANY_ID = 50272
-
-db.initialization()
 
 
 def api_data_checker(loc_pos_id: int, dts: tuple) -> list:
@@ -44,22 +45,22 @@ def join_or_accept_shift(shift_id: int, location: dict, shift_type: str, datetim
     datetime_ends: datetime = datetimes[1].replace(tzinfo=None)
     if shift_type == "join":
         response = requests.post(SITE + "/api/v1/requests/join",
-                                 params={"user_email": shyftplan_email,
-                                         "authentication_token": shyftplan_token,
+                                 params={"user_email": user_data["shyftplan_email"],
+                                         "authentication_token": user_data["shyftplan_token"],
                                          "company_id": COMPANY_ID,
                                          "shift_id": shift_id})
         json_response = json.loads(response.text)
         if "conflicts" in json_response:
             remove_day_request(location["name"], datetimes)
             response = requests.get(SITE + "/api/v1/evaluations",
-                                    params={"user_email": shyftplan_email,
-                                            "authentication_token": shyftplan_token,
+                                    params={"user_email": user_data["shyftplan_email"],
+                                            "authentication_token": user_data["shyftplan_token"],
                                             "page": 1,
                                             "per_page": 1,
                                             "starts_at": datetimes[0].isoformat(),  # tz +02:00
                                             "ends_at": datetimes[1].isoformat(),  # tz +02:00
                                             "state": "no_evaluation",
-                                            "employment_id": shyftplan_employee_id})
+                                            "employment_id": user_data["shyftplan_employee_id"]})
             json_response = json.loads(response.text)
             if len(json_response["items"]) > 0:
                 if json_response["items"][0]["locations_position_id"] == location["id"]:
@@ -86,8 +87,8 @@ def join_or_accept_shift(shift_id: int, location: dict, shift_type: str, datetim
                     f"Information: You already have a shift at the same time")
     elif shift_type == "replace":
         response = requests.post(SITE + "/api/v1/requests/replace/accept",
-                                 params={"user_email": shyftplan_email,
-                                         "authentication_token": shyftplan_token,
+                                 params={"user_email": user_data["shyftplan_email"],
+                                         "authentication_token": user_data["shyftplan_token"],
                                          "company_id": COMPANY_ID,
                                          "id": shift_id,
                                          "ignore_conflicts": "false"})
@@ -133,8 +134,8 @@ def notification(loc_pos_id: int, objekt: dict, shifted: str, text: str = '') ->
 
 def newsfeeds_checker() -> bool:
     response = requests.get(SITE + "/api/v1/newsfeeds",
-                            params={"user_email": shyftplan_email,
-                                    "authentication_token": shyftplan_token,
+                            params={"user_email": user_data["shyftplan_email"],
+                                    "authentication_token": user_data["shyftplan_token"],
                                     "company_id": COMPANY_ID,
                                     "page": 1,
                                     "per_page": 1})
@@ -152,7 +153,12 @@ def newsfeeds_checker() -> bool:
         return False
     else:
         json_items = page_json["items"][0]
-        if not db.newsfeeds_is_old_id(shyftplan_user_id, json_items["id"]):
+        is_old = db.newsfeeds_is_old_id(mysql.connect(user="root",
+                                                      host=database_data["ip"],
+                                                      password=database_data["password"],
+                                                      database="newsfeeds_db"),
+                                        user_data["shyftplan_user_id"], json_items["id"])
+        if not is_old:
             if json_items["key"] == "request.swap_request" and shift_offers_status:
                 loc_pos_id: int = json_items["metadata"]["locations_position_ids"][0]
                 isotime_starts: str = json_items["objekt"]["shift"]["starts_at"]  # tz +02:00
@@ -164,14 +170,14 @@ def newsfeeds_checker() -> bool:
                 adc_response_loc = adc_response[1]
                 if adc_response_code:
                     response = requests.get(SITE + "/api/v1/evaluations",
-                                            params={"user_email": shyftplan_email,
-                                                    "authentication_token": shyftplan_token,
+                                            params={"user_email": user_data["shyftplan_email"],
+                                                    "authentication_token": user_data["shyftplan_token"],
                                                     "page": 1,
                                                     "per_page": 1,
                                                     "starts_at": (datetime_starts - timedelta(hours=4)).isoformat(),
                                                     "ends_at": isotime_starts,
                                                     "state": "no_evaluation",
-                                                    "employment_id": shyftplan_employee_id})
+                                                    "employment_id": user_data["shyftplan_employee_id"]})
                     page_json = json.loads(response.text)
                     if len(page_json["items"]) > 0:  # Если уже что-то забронированно между часами
                         evaluation_ends_at = page_json["items"][0]["evaluation_ends_at"]
@@ -186,11 +192,13 @@ def newsfeeds_checker() -> bool:
                                              adc_response_loc,
                                              'replace',
                                              (datetime_starts, datetime_ends))
-            elif json_items["key"] == "request.swap_auto_accepted" and json_items["user_id"] == shyftplan_user_id:
+            elif json_items["key"] == "request.swap_auto_accepted" and \
+                    json_items["user_id"] == user_data["shyftplan_user_id"]:
                 notification(loc_pos_id=json_items["objekt"]["locations_position_id"],
                              objekt=json_items["objekt"],
                              shifted="True")
-            elif json_items["key"] == "request.shift_application" and json_items["user_id"] == shyftplan_user_id:
+            elif json_items["key"] == "request.shift_application" and \
+                    json_items["user_id"] == user_data["shyftplan_user_id"]:
                 notification(loc_pos_id=json_items["metadata"]["managed_locations_position_ids"][0],
                              objekt=json_items["objekt"]["shift"],
                              shifted="Unknown")
@@ -204,15 +212,19 @@ def newsfeeds_checker() -> bool:
             elif json_items["key"] == "message" and news_status:
                 requests.post(f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_MY_ID}&text="
                               f"💬 Shyftplan Message:\n{json_items['message']}")
-            db.newsfeeds_add_old_id(shyftplan_user_id, json_items["id"])
+            db.newsfeeds_add_old_id(mysql.connect(user="root",
+                                                  host=database_data["ip"],
+                                                  password=database_data["password"],
+                                                  database="newsfeeds_db"),
+                                    user_data["shyftplan_user_id"], json_items["id"])
         return True
 
 
 def open_shifts_checker() -> bool:
     locations = work_data.converter(today=datetime.now().strftime("%d.%m.%Y"))
     prepare_any_url = requests.models.PreparedRequest()
-    shifts_url_params = {"user_email": shyftplan_email,
-                         "authentication_token": shyftplan_token,
+    shifts_url_params = {"user_email": user_data["shyftplan_email"],
+                         "authentication_token": user_data["shyftplan_token"],
                          "company_id": COMPANY_ID,
                          "page": 1,
                          "per_page": 150,
@@ -263,10 +275,6 @@ while True:
     sleeptime: float = config.getfloat("PROGRAM_CONFIG", "sleeptime")
 
     if status and (open_shifts_status or shift_offers_status or news_status):
-        shyftplan_email: str = config.get("AUTH_CONFIG", "shyftplan_email")
-        shyftplan_token: str = config.get("AUTH_CONFIG", "shyftplan_token")
-        shyftplan_employee_id: int = config.getint("AUTH_CONFIG", "shyftplan_employee_id")
-        shyftplan_user_id: int = config.getint("AUTH_CONFIG", "shyftplan_user_id")
         time.sleep(sleeptime)
         try:
             if shift_offers_status or news_status:
