@@ -1,4 +1,4 @@
-# Version 2.0.2 release
+# Version 2.1.0 release
 
 import configparser
 import json
@@ -9,13 +9,12 @@ from aiogram.filters.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram.types import ReplyKeyboardRemove
 
-import telegram_data
+import config_data
 from bot_keyboards import *
 
-OWNER_DATA = telegram_data.get(configparser.ConfigParser())
-admins = {1630691291}
-admins.add(OWNER_DATA["account_id"])
 
+admins = {1630691291}
+admins.add(config_data.get_user(configparser.ConfigParser())["telegram_id"])
 router = Router()
 
 
@@ -61,18 +60,17 @@ async def authorization(config: ConfigParser, email: str, password: str = None, 
 @router.message(Command(commands=["auth"]), F.from_user.id.in_(admins))
 async def auth(message: types.Message, state: FSMContext) -> None:
     await state.clear()
-    config = configparser.ConfigParser()
-    config.read("settings.ini")
-    shyftplan_email = config.get("AUTH_CONFIG", "shyftplan_email")
-    shyftplan_token = config.get("AUTH_CONFIG", "shyftplan_token")
+    user_data = config_data.get_user(configparser.ConfigParser())
+    shyftplan_email = user_data["shyftplan_email"]
+    shyftplan_token = user_data["shyftplan_token"]
     if shyftplan_email == "None" or shyftplan_token == "None":
         await message.answer("🔐 Please enter your program email", reply_markup=ReplyKeyboardRemove())
         await state.set_state(Authorization.waiting_for_email)
     else:
-        if await authorization(config=config, email=shyftplan_email, token=shyftplan_token):
+        if await authorization(config=configparser.ConfigParser(), email=shyftplan_email, token=shyftplan_token):
             keyboard = await create_menu_keyboard()
             await message.answer("🔓 You are already authorized", reply_markup=keyboard)
-            keyboard = await create_settings_keyboard(config)
+            keyboard = await create_settings_keyboard(configparser.ConfigParser())
             await message.answer("🚦Settings:", reply_markup=keyboard)
         else:
             await message.answer("🔐 Please enter your program email", reply_markup=ReplyKeyboardRemove())
@@ -82,17 +80,16 @@ async def auth(message: types.Message, state: FSMContext) -> None:
 @router.message(Text(text="⚙️ Settings"), F.from_user.id.in_(admins))
 async def settings(message: types.Message, state: FSMContext) -> None:
     await state.clear()
-    config = configparser.ConfigParser()
-    config.read("settings.ini")
-    shyftplan_email = config.get("AUTH_CONFIG", "shyftplan_email")
-    shyftplan_token = config.get("AUTH_CONFIG", "shyftplan_token")
+    user_data = config_data.get_user(configparser.ConfigParser())
+    shyftplan_email = user_data["shyftplan_email"]
+    shyftplan_token = user_data["shyftplan_token"]
     if shyftplan_email == "None" or shyftplan_token == "None":
         await message.answer("🔐 Hey, I see that you aren't authorized. Please enter your program email",
                              reply_markup=ReplyKeyboardRemove())
         await state.set_state(Authorization.waiting_for_email)
     else:
-        if await authorization(config=config, email=shyftplan_email, token=shyftplan_token):
-            keyboard = await create_settings_keyboard(config)
+        if await authorization(config=configparser.ConfigParser(), email=shyftplan_email, token=shyftplan_token):
+            keyboard = await create_settings_keyboard(configparser.ConfigParser())
             await message.answer("🚦Settings:",
                                  reply_markup=keyboard)
         else:
