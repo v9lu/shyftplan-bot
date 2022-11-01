@@ -13,5 +13,5 @@ USE keys_db;
 CREATE TABLE IF NOT EXISTS activation_keys (
     activation_key TINYTEXT,
     key_type TINYTEXT,
-    key_expire DATETIME
+    key_days INT
 );
