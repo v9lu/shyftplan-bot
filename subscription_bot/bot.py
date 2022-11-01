@@ -1,20 +1,17 @@
-# Version 2.0.0 release
+# Version 2.0.1 release
 
 import asyncio
+import configparser
 import logging
-# import mysql.connector as mysql
 from aiogram import Bot, Dispatcher
 
 import bot_subscription
-# import server_db
-
-TG_BOT_API_TOKEN = "5510496973:AAHc2M_09Zk3K5MppSawIrgDg33DQWlqbuE"
+import config_data
 
 
 async def main():
-    # server_db.initialization(mysql.connect(host="92.118.150.6", user="root", password="1745375"))
     logging.basicConfig(level=logging.INFO)
-    bot = Bot(token=TG_BOT_API_TOKEN)
+    bot = Bot(token=config_data.get_bot_token(configparser.ConfigParser()))
     dp = Dispatcher()
     dp.include_router(bot_subscription.router)
 
