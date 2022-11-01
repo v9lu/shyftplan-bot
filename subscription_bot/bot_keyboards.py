@@ -1,4 +1,4 @@
-# Version 2.0.0 release
+# Version 2.1.0 release
 
 from configparser import ConfigParser
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, KeyboardButton, ReplyKeyboardMarkup
@@ -12,14 +12,26 @@ async def create_menu_button_keyboard() -> ReplyKeyboardMarkup:
     return menu_button_keyboard.as_markup(resize_keyboard=True)
 
 
-async def create_menu_keyboard() -> ReplyKeyboardMarkup:
+async def create_menu_keyboard(is_admin: bool) -> ReplyKeyboardMarkup:
     menu_keyboard = ReplyKeyboardBuilder()
-    buy_30_premium_btn = KeyboardButton(text="💎 30 day's premium")
-    buy_30_standard_btn = KeyboardButton(text="🔹 30 day's standard")
-    trial_btn = KeyboardButton(text="🆓 7 day's trial")
-    menu_keyboard.row(buy_30_premium_btn)
-    menu_keyboard.row(buy_30_standard_btn)
-    menu_keyboard.row(trial_btn)
+    if not is_admin:
+        buy_30_premium_btn = KeyboardButton(text="💎 30 day's premium")
+        buy_30_standard_btn = KeyboardButton(text="🔹 30 day's standard")
+        trial_btn = KeyboardButton(text="🆓 7 day's trial")
+        menu_keyboard.row(buy_30_premium_btn)
+        menu_keyboard.row(buy_30_standard_btn)
+        menu_keyboard.row(trial_btn)
+    else:
+        buy_30_premium_btn = KeyboardButton(text="💎 30 day's premium")
+        buy_30_standard_btn = KeyboardButton(text="🔹 30 day's standard")
+        trial_btn = KeyboardButton(text="🆓 7 day's trial")
+        create_key_btn = KeyboardButton(text="🔑 Create key")
+        remove_key_btn = KeyboardButton(text="🚫 Deactivate key")
+        menu_keyboard.row(buy_30_premium_btn)
+        menu_keyboard.row(buy_30_standard_btn)
+        menu_keyboard.row(trial_btn)
+        menu_keyboard.row(create_key_btn)
+        menu_keyboard.row(remove_key_btn)
     return menu_keyboard.as_markup(resize_keyboard=True)
 
 
