@@ -1,4 +1,4 @@
-# Version 1.11.0 release
+# Version 1.11.1 release
 
 import configparser
 import json
@@ -12,7 +12,6 @@ import db
 import work_data
 
 
-database_data = config_data.get_db(configparser.ConfigParser())
 user_data = config_data.get_user(configparser.ConfigParser())
 TG_MY_ID: int = user_data["telegram_id"]
 TG_BOT_API_TOKEN = config_data.get_bot_token(configparser.ConfigParser())
@@ -152,6 +151,7 @@ def newsfeeds_checker() -> bool:
                           f"⛔ Bot was stopped because your data is outdated, use command /auth to authorize again.")
         return False
     else:
+        database_data = config_data.get_db(configparser.ConfigParser())
         json_items = page_json["items"][0]
         is_old = db.newsfeeds_is_old_id(mysql.connect(user="root",
                                                       host=database_data["ip"],
