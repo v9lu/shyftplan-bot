@@ -1,4 +1,4 @@
-# Version 1.1.0 release
+# Version 1.1.1 release
 
 from configparser import ConfigParser
 
@@ -11,6 +11,7 @@ def get_bot_token(config: ConfigParser) -> str:
 def get_db(config: ConfigParser) -> dict:
     config.read('settings.ini')
     return {"ip": config.get("DATABASE", "ip"),
+            "port": config.getint("DATABASE", "port"),
             "password": config.get("DATABASE", "password")}
 
 
