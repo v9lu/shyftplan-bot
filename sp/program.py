@@ -1,4 +1,4 @@
-# Version 1.11.1 release
+# Version 1.11.2 release
 
 import configparser
 import json
@@ -155,6 +155,7 @@ def newsfeeds_checker() -> bool:
         json_items = page_json["items"][0]
         is_old = db.newsfeeds_is_old_id(mysql.connect(user="root",
                                                       host=database_data["ip"],
+                                                      port=database_data["port"],
                                                       password=database_data["password"],
                                                       database="newsfeeds_db"),
                                         user_data["shyftplan_user_id"], json_items["id"])
@@ -214,6 +215,7 @@ def newsfeeds_checker() -> bool:
                               f"💬 Shyftplan Message:\n{json_items['message']}")
             db.newsfeeds_add_old_id(mysql.connect(user="root",
                                                   host=database_data["ip"],
+                                                  port=database_data["port"],
                                                   password=database_data["password"],
                                                   database="newsfeeds_db"),
                                     user_data["shyftplan_user_id"], json_items["id"])
