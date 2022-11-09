@@ -1,8 +1,13 @@
-# Version 1.2.12 release
+# Version 1.2.13 release
 
 import copy
+import json
 from datetime import datetime, timedelta
+from mysql.connector.connection_cext import CMySQLConnection
+from typing import Optional
 from unidecode import unidecode
+
+import db
 
 locations_sample = [{"name": "szarych", "fullname": "Szarych Szeregów 11", "id": 163056, "dates": []},
                     {"name": "hawajska", "fullname": "Hawajska 11", "id": 165605, "dates": []},
@@ -122,13 +127,18 @@ def user_converter(work_data_extracted_string: str) -> list:
     return locations
 
 
-def add_days(days: str) -> None:
+def add_days(conn: CMySQLConnection, user_id: int, days: str) -> None:
     days = unidecode(days)
     days = days.lower().split("\n")
-    with open("work_data.txt", "r") as work_data_file:
-        work_data_extracted_string = work_data_file.read()
-        work_data_extracted = work_data_extracted_string.split()
-        work_data = []
+
+    user_data = db.users_get_user(conn=conn, user_id=user_id)
+    work_data_extracted_string = user_data["shifts"]
+    if work_data_extracted_string:
+        work_data_extracted = json.loads(work_data_extracted_string)
+    else:
+        work_data_extracted_string = ''
+        work_data_extracted = []
+    work_data = []
 
     for day in days:
         list_from_day = day.split("/")
@@ -150,17 +160,23 @@ def add_days(days: str) -> None:
     work_data_extracted.sort(key=take_date)
     for work_day in work_data_extracted:
         work_data.append(work_day.strip())
-    with open("work_data.txt", "w") as work_data_file:
-        work_data_file.writelines('\n'.join(work_data))
+
+    db.users_configs_update_user(conn=conn, user_id=user_id, shifts=json.dumps(work_data))
 
 
-def remove_days(days: str) -> None:
+def remove_days(conn: CMySQLConnection, user_id: int, days: str) -> None:
     days = unidecode(days)
     days = days.lower().split("\n")
-    with open("work_data.txt", "r") as work_data_file:
-        work_data_extracted_string = work_data_file.read()
-        work_data_extracted = work_data_extracted_string.split()
-        work_data = []
+
+    user_data = db.users_get_user(conn=conn, user_id=user_id)
+    work_data_extracted_string = user_data["shifts"]
+    if work_data_extracted_string:
+        work_data_extracted = json.loads(work_data_extracted_string)
+    else:
+        work_data_extracted_string = ''
+        work_data_extracted = []
+    work_data = []
+
     for day in days:
         list_from_day = day.split("/")
         location_calendar_day = '/'.join(list_from_day[:2])
@@ -187,5 +203,15 @@ def remove_days(days: str) -> None:
     work_data_extracted.sort(key=take_date)
     for work_day in work_data_extracted:
         work_data.append(work_day.strip())
-    with open("work_data.txt", "w") as work_data_file:
-        work_data_file.writelines('\n'.join(work_data))
+
+    db.users_configs_update_user(conn=conn, user_id=user_id, shifts=json.dumps(work_data))
+
+
+def get_bytes_file(conn: CMySQLConnection, user_id: int) -> Optional[bytes]:
+    user_data = db.users_get_user(conn=conn, user_id=user_id)
+    work_data_extracted_string = user_data["shifts"]
+    if work_data_extracted_string:
+        work_data_extracted = json.loads(work_data_extracted_string)
+        return bytes('\n'.join(work_data_extracted), encoding="utf8")
+    else:
+        return None
