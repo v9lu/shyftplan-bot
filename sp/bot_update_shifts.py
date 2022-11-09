@@ -1,20 +1,18 @@
-# Version 2.0.2 release
+# Version 2.1.0 release
 
 import configparser
-from aiogram import F, Router, types
-from aiogram.exceptions import TelegramBadRequest
+import mysql.connector as mysql
+from aiogram import Router, types
 from aiogram.filters import Text
 from aiogram.filters.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
-from aiogram.types import FSInputFile
+from aiogram.types import BufferedInputFile
 
 import config_data
+import db
 import work_data
 from bot_keyboards import *
 
-
-admins = {1630691291}
-admins.add(config_data.get_user(configparser.ConfigParser())["telegram_id"])
 router = Router()
 
 
@@ -23,7 +21,7 @@ class UpdateShifts(StatesGroup):
     waiting_for_shifts_remove = State()
 
 
-@router.message(Text(text="📗 Add shifts"), F.from_user.id.in_(admins))
+@router.message(Text(text="📗 Add shifts"))
 async def add_shifts(message: types.Message, state: FSMContext) -> None:
     await state.clear()
     keyboard = await create_menu_button_keyboard()
@@ -34,7 +32,7 @@ async def add_shifts(message: types.Message, state: FSMContext) -> None:
     await state.set_state(UpdateShifts.waiting_for_shifts_add)
 
 
-@router.message(Text(text="📕 Remove shifts"), F.from_user.id.in_(admins))
+@router.message(Text(text="📕 Remove shifts"))
 async def remove_shifts(message: types.Message, state: FSMContext) -> None:
     await state.clear()
     keyboard = await create_menu_button_keyboard()
@@ -45,15 +43,21 @@ async def remove_shifts(message: types.Message, state: FSMContext) -> None:
     await state.set_state(UpdateShifts.waiting_for_shifts_remove)
 
 
-@router.message(Text(text="📋 My shifts"), F.from_user.id.in_(admins))
+@router.message(Text(text="📋 My shifts"))
 async def my_shifts(message: types.Message, state: FSMContext) -> None:
     await state.clear()
-    keyboard = await create_update_shifts_keyboard()
-    shifts_file = FSInputFile("work_data.txt", "shifts.txt")
-    try:
-        await message.answer_document(document=shifts_file, caption="📋 This is a list of your shifts",
-                                      reply_markup=keyboard)
-    except TelegramBadRequest:
+    db_data = config_data.get_db(configparser.ConfigParser())
+    users_db_connect = mysql.connect(user="root",
+                                     host=db_data["ip"],
+                                     port=db_data["port"],
+                                     password=db_data["password"],
+                                     database="users_db")
+    bytes_file = work_data.get_bytes_file(conn=users_db_connect, user_id=message.from_user.id)
+    users_db_connect.close()
+    if bytes_file:
+        shifts_file = BufferedInputFile(bytes_file, "shifts.txt")
+        await message.answer_document(document=shifts_file, caption="📋 This is a list of your shifts")
+    else:
         await message.answer("📄 You have no shifts!")
 
 
@@ -61,10 +65,27 @@ async def my_shifts(message: types.Message, state: FSMContext) -> None:
 @router.message(UpdateShifts.waiting_for_shifts_remove)
 async def shifts_waiting(message: types.Message, state: FSMContext) -> None:
     state_name = await state.get_state()
+    db_data = config_data.get_db(configparser.ConfigParser())
+    users_db_connect = mysql.connect(user="root",
+                                     host=db_data["ip"],
+                                     port=db_data["port"],
+                                     password=db_data["password"],
+                                     database="users_db")
+    user_data = db.users_get_user(conn=users_db_connect, user_id=message.from_user.id)
     if state_name == "UpdateShifts:waiting_for_shifts_add":
-        work_data.add_days(message.text)
+        work_data.add_days(conn=users_db_connect, user_id=message.from_user.id, days=message.text)
     elif state_name == "UpdateShifts:waiting_for_shifts_remove":
-        work_data.remove_days(message.text)
-    keyboard = await create_menu_keyboard()
+        work_data.remove_days(conn=users_db_connect, user_id=message.from_user.id, days=message.text)
+    users_db_connect.close()
+    if user_data["sp_uid"]:
+        sp_users_db_connect = mysql.connect(user="root",
+                                            host=db_data["ip"],
+                                            port=db_data["port"],
+                                            password=db_data["password"],
+                                            database="sp_users_db")
+        sp_user_data = db.sp_users_sub_info(conn=sp_users_db_connect, sp_uid=user_data["sp_uid"])
+        keyboard = await create_menu_keyboard(sp_user_data=sp_user_data)
+    else:
+        keyboard = await create_menu_keyboard()
     await message.answer("✅ Shifts updated successful", reply_markup=keyboard)
     await state.clear()
