@@ -1,20 +1,19 @@
-# Version 2.1.0 release
+# Version 2.2.0 release
 
 import configparser
 import json
+import mysql.connector as mysql
 import requests
-from aiogram import F, Router, types
+from aiogram import Router, types
 from aiogram.filters import Command, Text
 from aiogram.filters.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram.types import ReplyKeyboardRemove
 
 import config_data
+import db
 from bot_keyboards import *
 
-
-admins = {1630691291}
-admins.add(config_data.get_user(configparser.ConfigParser())["telegram_id"])
 router = Router()
 
 
@@ -23,7 +22,7 @@ class Authorization(StatesGroup):
     waiting_for_password = State()
 
 
-async def authorization(config: ConfigParser, email: str, password: str = None, token: str = None) -> bool:
+async def authorization(user_id: int, email: str, password: str = None, token: str = None) -> bool:
     if token:
         response = requests.get("https://shyftplan.com/api/v1/employments/my",
                                 params={"user_email": email,
@@ -43,57 +42,86 @@ async def authorization(config: ConfigParser, email: str, password: str = None, 
                                     params={"user_email": email,
                                             "authentication_token": token})
             json_items = json.loads(response.text)
-            employee_id = str(json_items["items"][0]["id"])
-            user_id = str(json_items["items"][0]["user_id"])
-            config.read("settings.ini")
-            config.set("AUTH_CONFIG", "shyftplan_email", email)
-            config.set("AUTH_CONFIG", "shyftplan_token", token)
-            config.set("AUTH_CONFIG", "shyftplan_employee_id", employee_id)
-            config.set("AUTH_CONFIG", "shyftplan_user_id", user_id)
-            with open("settings.ini", 'w') as configfile:
-                config.write(configfile)
+            sp_eid = json_items["items"][0]["id"]
+            sp_uid = json_items["items"][0]["user_id"]
+            db_data = config_data.get_db(configparser.ConfigParser())
+            users_db_connect = mysql.connect(user="root",
+                                             host=db_data["ip"],
+                                             port=db_data["port"],
+                                             password=db_data["password"],
+                                             database="users_db")
+            db.users_configs_update_user(conn=users_db_connect, user_id=user_id,
+                                         sp_email=email, sp_token=token, sp_eid=sp_eid, sp_uid=sp_uid)
+            users_db_connect.close()
+            sp_users_db_connect = mysql.connect(user="root",
+                                                host=db_data["ip"],
+                                                port=db_data["port"],
+                                                password=db_data["password"],
+                                                database="sp_users_db")
+            db.sp_users_add_user(conn=sp_users_db_connect, sp_user_id=sp_uid)
+            sp_users_db_connect.close()
             return True
         else:
             return False
 
 
-@router.message(Command(commands=["auth"]), F.from_user.id.in_(admins))
+@router.message(Command(commands=["auth"]))
 async def auth(message: types.Message, state: FSMContext) -> None:
     await state.clear()
-    user_data = config_data.get_user(configparser.ConfigParser())
-    shyftplan_email = user_data["shyftplan_email"]
-    shyftplan_token = user_data["shyftplan_token"]
-    if shyftplan_email == "None" or shyftplan_token == "None":
-        await message.answer("🔐 Please enter your program email", reply_markup=ReplyKeyboardRemove())
+    db_data = config_data.get_db(configparser.ConfigParser())
+    users_db_connect = mysql.connect(user="root",
+                                     host=db_data["ip"],
+                                     port=db_data["port"],
+                                     password=db_data["password"],
+                                     database="users_db")
+    user_data = db.users_get_user(conn=users_db_connect, user_id=message.from_user.id)
+    users_db_connect.close()
+    shyftplan_email = user_data["sp_email"]
+    shyftplan_token = user_data["sp_token"]
+    if not shyftplan_email or not shyftplan_token:
+        await message.answer("🔐 Please enter your shyftplan email", reply_markup=ReplyKeyboardRemove())
         await state.set_state(Authorization.waiting_for_email)
     else:
-        if await authorization(config=configparser.ConfigParser(), email=shyftplan_email, token=shyftplan_token):
-            keyboard = await create_menu_keyboard()
+        if await authorization(user_id=message.from_user.id, email=shyftplan_email, token=shyftplan_token):
+            sp_users_db_connect = mysql.connect(user="root",
+                                                host=db_data["ip"],
+                                                port=db_data["port"],
+                                                password=db_data["password"],
+                                                database="sp_users_db")
+            sp_user_data = db.sp_users_sub_info(conn=sp_users_db_connect, sp_user_id=user_data["sp_uid"])
+            sp_users_db_connect.close()
+            keyboard = await create_menu_keyboard(sp_user_data=sp_user_data)
             await message.answer("🔓 You are already authorized", reply_markup=keyboard)
-            keyboard = await create_settings_keyboard(configparser.ConfigParser())
+            keyboard = await create_settings_keyboard(user_data=user_data)
             await message.answer("🚦Settings:", reply_markup=keyboard)
         else:
-            await message.answer("🔐 Please enter your program email", reply_markup=ReplyKeyboardRemove())
+            await message.answer("🔐 Please enter your shyftplan email", reply_markup=ReplyKeyboardRemove())
             await state.set_state(Authorization.waiting_for_email)
 
 
-@router.message(Text(text="⚙️ Settings"), F.from_user.id.in_(admins))
+@router.message(Text(text="⚙️ Settings"))
 async def settings(message: types.Message, state: FSMContext) -> None:
     await state.clear()
-    user_data = config_data.get_user(configparser.ConfigParser())
-    shyftplan_email = user_data["shyftplan_email"]
-    shyftplan_token = user_data["shyftplan_token"]
-    if shyftplan_email == "None" or shyftplan_token == "None":
-        await message.answer("🔐 Hey, I see that you aren't authorized. Please enter your program email",
+    db_data = config_data.get_db(configparser.ConfigParser())
+    users_db_connect = mysql.connect(user="root",
+                                     host=db_data["ip"],
+                                     port=db_data["port"],
+                                     password=db_data["password"],
+                                     database="users_db")
+    user_data = db.users_get_user(conn=users_db_connect, user_id=message.from_user.id)
+    users_db_connect.close()
+    shyftplan_email = user_data["sp_email"]
+    shyftplan_token = user_data["sp_token"]
+    if not shyftplan_email or not shyftplan_token:
+        await message.answer("🔐 You aren't authorized. Please enter your shyftplan email",
                              reply_markup=ReplyKeyboardRemove())
         await state.set_state(Authorization.waiting_for_email)
     else:
-        if await authorization(config=configparser.ConfigParser(), email=shyftplan_email, token=shyftplan_token):
-            keyboard = await create_settings_keyboard(configparser.ConfigParser())
-            await message.answer("🚦Settings:",
-                                 reply_markup=keyboard)
+        if await authorization(user_id=message.from_user.id, email=shyftplan_email, token=shyftplan_token):
+            keyboard = await create_settings_keyboard(user_data=user_data)
+            await message.answer("🚦Settings:", reply_markup=keyboard)
         else:
-            await message.answer("🔐 Your data is outdated. Please authorize again, enter your program email",
+            await message.answer("🔐 Your data is outdated. Please authorize again, enter your shyftplan email",
                                  reply_markup=ReplyKeyboardRemove())
             await state.set_state(Authorization.waiting_for_email)
 
@@ -101,23 +129,36 @@ async def settings(message: types.Message, state: FSMContext) -> None:
 @router.message(Authorization.waiting_for_email)
 async def email_waiting(message: types.Message, state: FSMContext) -> None:
     await state.update_data(email=message.text)
-    await message.answer("🔐 Now enter your program password", reply_markup=ReplyKeyboardRemove())
+    await message.answer("🔐 Now enter your shyftplan password", reply_markup=ReplyKeyboardRemove())
     await state.set_state(Authorization.waiting_for_password)
 
 
 @router.message(Authorization.waiting_for_password)
 async def password_waiting(message: types.Message, state: FSMContext) -> None:
     await state.update_data(password=message.text)
-    config = configparser.ConfigParser()
     auth_data = await state.get_data()
-    keyboard = await create_menu_keyboard()
-    if await authorization(config=config, email=auth_data["email"], password=auth_data["password"]):
-        await message.answer("🔓 Good, you are authorized successfully",
-                             reply_markup=keyboard)
-        keyboard = await create_settings_keyboard(config)
-        await message.answer("🚦Settings:",
-                             reply_markup=keyboard)
+    db_data = config_data.get_db(configparser.ConfigParser())
+    users_db_connect = mysql.connect(user="root",
+                                     host=db_data["ip"],
+                                     port=db_data["port"],
+                                     password=db_data["password"],
+                                     database="users_db")
+    user_data = db.users_get_user(conn=users_db_connect, user_id=message.from_user.id)
+    users_db_connect.close()
+    if await authorization(user_id=message.from_user.id, email=auth_data["email"], password=auth_data["password"]):
+        sp_users_db_connect = mysql.connect(user="root",
+                                            host=db_data["ip"],
+                                            port=db_data["port"],
+                                            password=db_data["password"],
+                                            database="sp_users_db")
+        sp_user_data = db.sp_users_sub_info(conn=sp_users_db_connect, sp_user_id=user_data["sp_uid"])
+        sp_users_db_connect.close()
+        keyboard = await create_menu_keyboard(sp_user_data=sp_user_data)
+        await message.answer("🔓 Good, you are authorized successfully", reply_markup=keyboard)
+        keyboard = await create_settings_keyboard(user_data=user_data)
+        await message.answer("🚦Settings:", reply_markup=keyboard)
     else:
+        keyboard = await create_menu_keyboard()
         await message.answer("🔒 Unfortunately email or password isn't correct. Try again using /auth command",
                              reply_markup=keyboard)
     await state.clear()
