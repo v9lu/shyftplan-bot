@@ -1,53 +1,137 @@
-# Version 2.0.3 release
+# Version 2.1.0 release
 
 import configparser
-from aiogram import F, Router, types
+import mysql.connector as mysql
+from aiogram import Router, types
 from aiogram.filters import Command, Text
 from aiogram.fsm.context import FSMContext
+from datetime import datetime
 
 import config_data
+import db
 from bot_keyboards import *
 
-
-admins = {1630691291}
-admins.add(config_data.get_user(configparser.ConfigParser())["telegram_id"])
 router = Router()
 
 
-@router.message(Command(commands=["start"]), F.from_user.id.in_(admins))
-@router.message(Text(text="🎛 Menu"), F.from_user.id.in_(admins))
+@router.message(Command(commands=["start"]))
+@router.message(Text(text="🎛 Menu"))
 async def bot_start(message: types.Message, state: FSMContext) -> None:
     await state.clear()
-    keyboard = await create_menu_keyboard()
-    await message.answer("⭕ Here will be cool statistic soon, but not yet", reply_markup=keyboard)
+    db_data = config_data.get_db(configparser.ConfigParser())
+    users_db_connect = mysql.connect(user="root",
+                                     host=db_data["ip"],
+                                     port=db_data["port"],
+                                     password=db_data["password"],
+                                     database="users_db")
+    db.users_add_user(conn=users_db_connect, user_id=message.from_user.id)
+    user_data = db.users_get_user(conn=users_db_connect, user_id=message.from_user.id)
+    users_db_connect.close()
+    if user_data["sp_uid"]:
+        sp_users_db_connect = mysql.connect(user="root",
+                                            host=db_data["ip"],
+                                            port=db_data["port"],
+                                            password=db_data["password"],
+                                            database="sp_users_db")
+        sp_user_data = db.sp_users_sub_info(conn=sp_users_db_connect, sp_uid=user_data["sp_uid"])
+        sp_users_db_connect.close()
+        keyboard = await create_menu_keyboard(sp_user_data)
+        if sp_user_data["subscription"] == "admin":
+            subscription_text = "🖥 <b>Subscription</b>: <code>Admin</code>\n" \
+                                "     ├─ 📅 <b>Expire:</b> <code>Never</code>"
+        elif sp_user_data["subscription"] == "friend":
+            subscription_text = "👑 <b>Subscription</b>: <code>Friend</code>\n" \
+                                "     ├─ 📅 <b>Expire:</b> <code>Never</code>"
+        elif sp_user_data["subscription"] == "premium":
+            expire_text = datetime.strftime(sp_user_data["expire"],
+                                            "<code>%d</code> <code>%B</code>, <code>%H:%M</code>")
+            subscription_text = "💎 <b>Subscription</b>: <code>Premium</code>\n" \
+                                f"     ├─ 📅 <b>Expire:</b> {expire_text}"
+        elif sp_user_data["subscription"] == "standard":
+            expire_text = datetime.strftime(sp_user_data["expire"],
+                                            "<code>%d</code> <code>%B</code>, <code>%H:%M</code>")
+            subscription_text = "🔹 <b>Subscription</b>: <code>Standard</code>\n" \
+                                f"     ├─ 📅 <b>Expire:</b> {expire_text}"
+        elif sp_user_data["subscription"] == "trial":
+            expire_text = datetime.strftime(sp_user_data["expire"],
+                                            "<code>%d</code> <code>%B</code>, <code>%H:%M</code>")
+            subscription_text = "🆓 <b>Subscription</b>: <code>Trial</code>\n" \
+                                f"     ├─ 📅 <b>Expire:</b> {expire_text}"
+        else:
+            subscription_text = "❌ <b>Subscription</b>: <code>None</code>"
+    else:
+        keyboard = await create_menu_keyboard()
+        subscription_text = "❌ <b>Subscription</b>: <code>None</code>"
+
+    await message.answer("📊 <u>Statistic:</u>\n"
+                         f"👤 <b>User ID</b>: <code>{user_data['user_id']}</code>\n"
+                         f"{subscription_text}\n"
+                         f"✅ <b>Successful shifted:</b> ~<code>{user_data['shifted_shifts']}</code>\n"
+                         f"🕐 <b>Shifted hours</b>: ~<code>{user_data['shifted_hours']}</code>\n"
+                         f"💰 <b>Earned with this bot</b>: ~<code>{user_data['earned']}</code> zł",
+                         reply_markup=keyboard, parse_mode="HTML")
 
 
-@router.message(Text(text="♻️ Update shifts"), F.from_user.id.in_(admins))
+@router.message(Text(text="♻️ Update shifts"))
 async def update_shifts(message: types.Message, state: FSMContext) -> None:
     await state.clear()
     keyboard = await create_update_shifts_keyboard()
-    await message.answer("⏳ Select an action",
-                         reply_markup=keyboard)
+    await message.answer("⏳ Select an action", reply_markup=keyboard)
+
+
+@router.message(Text(text="💳️ Buy subscription"))
+async def buy_subscription(message: types.Message, state: FSMContext) -> None:
+    await state.clear()
+    keyboard = await create_subscriptions_keyboard()
+    await message.answer("💳 Available plans", reply_markup=keyboard)
 
 
 @router.callback_query()
 async def change_config(call: types.CallbackQuery) -> None:
-    config = configparser.ConfigParser()
-    config.read("settings.ini")
-    if call.data != 'speed':
-        reversed_bool = not config.getboolean("PROGRAM_CONFIG", call.data)
-        config.set("PROGRAM_CONFIG", call.data, str(reversed_bool))
-    else:
-        sleeptime_original = config.getfloat("PROGRAM_CONFIG", "sleeptime")
-        if sleeptime_original == 1.0:
-            sleeptime_new = "0.3"
+    db_data = config_data.get_db(configparser.ConfigParser())
+    users_db_connect = mysql.connect(user="root",
+                                     host=db_data["ip"],
+                                     port=db_data["port"],
+                                     password=db_data["password"],
+                                     database="users_db")
+    sp_users_db_connect = mysql.connect(user="root",
+                                        host=db_data["ip"],
+                                        port=db_data["port"],
+                                        password=db_data["password"],
+                                        database="sp_users_db")
+    user_data = db.users_get_user(conn=users_db_connect, user_id=call.from_user.id)
+    sp_user_data = db.sp_users_sub_info(conn=sp_users_db_connect, sp_uid=user_data["sp_uid"])
+    sp_users_db_connect.close()
+    sp_user_subscription = sp_user_data["subscription"]
+    if call.data == "prog_status" or call.data == "prog_open_shifts" or call.data == "prog_shift_offers":
+        db.users_configs_update_user(conn=users_db_connect, user_id=call.from_user.id,
+                                     **{call.data: not bool(user_data[call.data])})
+        updated_user_data = db.users_get_user(conn=users_db_connect, user_id=call.from_user.id)
+        keyboard = await create_settings_keyboard(user_data=updated_user_data)
+        await call.message.edit_text("🚦Settings:", reply_markup=keyboard)
+        await call.answer()
+    elif sp_user_subscription == 'premium' or sp_user_subscription == "friend" or sp_user_subscription == "admin":
+        if call.data == "prog_news":
+            db.users_configs_update_user(conn=users_db_connect, user_id=call.from_user.id,
+                                         **{call.data: not bool(user_data[call.data])})
+            updated_user_data = db.users_get_user(conn=users_db_connect, user_id=call.from_user.id)
+            keyboard = await create_settings_keyboard(user_data=updated_user_data)
+            await call.message.edit_text("🚦Settings:", reply_markup=keyboard)
+            await call.answer()
         else:
-            sleeptime_new = "1.0"
-        config.set("PROGRAM_CONFIG", "sleeptime", sleeptime_new)
-
-    with open("settings.ini", 'w') as configfile:
-        config.write(configfile)
-
-    keyboard = await create_settings_keyboard(config)
-    await call.message.edit_text("🚦Settings:", reply_markup=keyboard)
-    await call.answer()
+            if user_data["prog_sleep"] == 5.0:
+                db.users_configs_update_user(conn=users_db_connect, user_id=call.from_user.id,
+                                             **{call.data: 1.0})
+            elif user_data["prog_sleep"] == 1.0:
+                db.users_configs_update_user(conn=users_db_connect, user_id=call.from_user.id,
+                                             **{call.data: 0.3})
+            elif user_data["prog_sleep"] == 0.3:
+                db.users_configs_update_user(conn=users_db_connect, user_id=call.from_user.id,
+                                             **{call.data: 5.0})
+            updated_user_data = db.users_get_user(conn=users_db_connect, user_id=call.from_user.id)
+            keyboard = await create_settings_keyboard(user_data=updated_user_data)
+            await call.message.edit_text("🚦Settings:", reply_markup=keyboard)
+            await call.answer()
+    else:
+        await call.answer(text="💎 Only for premium subscription!")
+    users_db_connect.close()
