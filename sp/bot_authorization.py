@@ -1,4 +1,4 @@
-# Version 2.2.0 release
+# Version 2.2.1 release
 
 import configparser
 import json
@@ -45,21 +45,16 @@ async def authorization(user_id: int, email: str, password: str = None, token: s
             sp_eid = json_items["items"][0]["id"]
             sp_uid = json_items["items"][0]["user_id"]
             db_data = config_data.get_db(configparser.ConfigParser())
-            users_db_connect = mysql.connect(user="root",
-                                             host=db_data["ip"],
-                                             port=db_data["port"],
-                                             password=db_data["password"],
-                                             database="users_db")
-            db.users_configs_update_user(conn=users_db_connect, user_id=user_id,
+            db_connect = mysql.connect(user="root",
+                                       host=db_data["ip"],
+                                       port=db_data["port"],
+                                       password=db_data["password"],
+                                       database="users_db")
+            db.users_configs_update_user(conn=db_connect, user_id=user_id,
                                          sp_email=email, sp_token=token, sp_eid=sp_eid, sp_uid=sp_uid)
-            users_db_connect.close()
-            sp_users_db_connect = mysql.connect(user="root",
-                                                host=db_data["ip"],
-                                                port=db_data["port"],
-                                                password=db_data["password"],
-                                                database="sp_users_db")
-            db.sp_users_add_user(conn=sp_users_db_connect, sp_user_id=sp_uid)
-            sp_users_db_connect.close()
+            db_connect.connect(database="sp_users_db")
+            db.sp_users_add_user(conn=db_connect, sp_uid=sp_uid)
+            db_connect.close()
             return True
         else:
             return False
@@ -69,13 +64,12 @@ async def authorization(user_id: int, email: str, password: str = None, token: s
 async def auth(message: types.Message, state: FSMContext) -> None:
     await state.clear()
     db_data = config_data.get_db(configparser.ConfigParser())
-    users_db_connect = mysql.connect(user="root",
-                                     host=db_data["ip"],
-                                     port=db_data["port"],
-                                     password=db_data["password"],
-                                     database="users_db")
-    user_data = db.users_get_user(conn=users_db_connect, user_id=message.from_user.id)
-    users_db_connect.close()
+    db_connect = mysql.connect(user="root",
+                               host=db_data["ip"],
+                               port=db_data["port"],
+                               password=db_data["password"],
+                               database="users_db")
+    user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
     shyftplan_email = user_data["sp_email"]
     shyftplan_token = user_data["sp_token"]
     if not shyftplan_email or not shyftplan_token:
@@ -83,13 +77,9 @@ async def auth(message: types.Message, state: FSMContext) -> None:
         await state.set_state(Authorization.waiting_for_email)
     else:
         if await authorization(user_id=message.from_user.id, email=shyftplan_email, token=shyftplan_token):
-            sp_users_db_connect = mysql.connect(user="root",
-                                                host=db_data["ip"],
-                                                port=db_data["port"],
-                                                password=db_data["password"],
-                                                database="sp_users_db")
-            sp_user_data = db.sp_users_sub_info(conn=sp_users_db_connect, sp_user_id=user_data["sp_uid"])
-            sp_users_db_connect.close()
+            db_connect.connect(database="sp_users_db")
+            sp_user_data = db.sp_users_sub_info(conn=db_connect, sp_uid=user_data["sp_uid"])
+            db_connect.close()
             keyboard = await create_menu_keyboard(sp_user_data=sp_user_data)
             await message.answer("🔓 You are already authorized", reply_markup=keyboard)
             keyboard = await create_settings_keyboard(user_data=user_data)
@@ -103,13 +93,13 @@ async def auth(message: types.Message, state: FSMContext) -> None:
 async def settings(message: types.Message, state: FSMContext) -> None:
     await state.clear()
     db_data = config_data.get_db(configparser.ConfigParser())
-    users_db_connect = mysql.connect(user="root",
-                                     host=db_data["ip"],
-                                     port=db_data["port"],
-                                     password=db_data["password"],
-                                     database="users_db")
-    user_data = db.users_get_user(conn=users_db_connect, user_id=message.from_user.id)
-    users_db_connect.close()
+    db_connect = mysql.connect(user="root",
+                               host=db_data["ip"],
+                               port=db_data["port"],
+                               password=db_data["password"],
+                               database="users_db")
+    user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
+    db_connect.close()
     shyftplan_email = user_data["sp_email"]
     shyftplan_token = user_data["sp_token"]
     if not shyftplan_email or not shyftplan_token:
@@ -138,21 +128,16 @@ async def password_waiting(message: types.Message, state: FSMContext) -> None:
     await state.update_data(password=message.text)
     auth_data = await state.get_data()
     db_data = config_data.get_db(configparser.ConfigParser())
-    users_db_connect = mysql.connect(user="root",
-                                     host=db_data["ip"],
-                                     port=db_data["port"],
-                                     password=db_data["password"],
-                                     database="users_db")
-    user_data = db.users_get_user(conn=users_db_connect, user_id=message.from_user.id)
-    users_db_connect.close()
+    db_connect = mysql.connect(user="root",
+                               host=db_data["ip"],
+                               port=db_data["port"],
+                               password=db_data["password"],
+                               database="users_db")
+    user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
     if await authorization(user_id=message.from_user.id, email=auth_data["email"], password=auth_data["password"]):
-        sp_users_db_connect = mysql.connect(user="root",
-                                            host=db_data["ip"],
-                                            port=db_data["port"],
-                                            password=db_data["password"],
-                                            database="sp_users_db")
-        sp_user_data = db.sp_users_sub_info(conn=sp_users_db_connect, sp_user_id=user_data["sp_uid"])
-        sp_users_db_connect.close()
+        db_connect.connect(database="sp_users_db")
+        sp_user_data = db.sp_users_sub_info(conn=db_connect, sp_uid=user_data["sp_uid"])
+        db_connect.close()
         keyboard = await create_menu_keyboard(sp_user_data=sp_user_data)
         await message.answer("🔓 Good, you are authorized successfully", reply_markup=keyboard)
         keyboard = await create_settings_keyboard(user_data=user_data)
