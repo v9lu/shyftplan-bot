@@ -1,4 +1,4 @@
-# Version 2.2.1 release
+# Version 2.2.2 release
 
 from mysql.connector.connection_cext import CMySQLConnection
 
@@ -97,11 +97,11 @@ def users_configs_update_user(conn: CMySQLConnection, user_id: int, **kwargs) ->
     cursor.close()
 
 
-def users_statistics_update_user(conn: CMySQLConnection, user_id: int, **kwargs) -> None:
+def users_statistics_update_user_add(conn: CMySQLConnection, user_id: int,
+                                     shifted_shifts_add: int, shifted_hours_add: float, earned_add: float) -> None:
     cursor = conn.cursor()
-    for arg in kwargs.items():
-        arg_name = arg[0]
-        arg_data = arg[1]
-        cursor.execute(f"UPDATE users_statistics SET {arg_name}=%s WHERE user_id=%s", (arg_data, user_id))
+    cursor.execute(f"UPDATE users_statistics "
+                   f"SET shifted_shifts=shifted_shifts+%s, shifted_hours=shifted_hours+%s, earned=earned+%s "
+                   f"WHERE user_id=%s", (shifted_shifts_add, shifted_hours_add, earned_add, user_id))
     conn.commit()
     cursor.close()
