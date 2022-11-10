@@ -1,4 +1,4 @@
-# Version 2.1.0 release
+# Version 2.1.1 release
 
 import configparser
 import mysql.connector as mysql
@@ -47,13 +47,13 @@ async def remove_shifts(message: types.Message, state: FSMContext) -> None:
 async def my_shifts(message: types.Message, state: FSMContext) -> None:
     await state.clear()
     db_data = config_data.get_db(configparser.ConfigParser())
-    users_db_connect = mysql.connect(user="root",
-                                     host=db_data["ip"],
-                                     port=db_data["port"],
-                                     password=db_data["password"],
-                                     database="users_db")
-    bytes_file = work_data.get_bytes_file(conn=users_db_connect, user_id=message.from_user.id)
-    users_db_connect.close()
+    db_connect = mysql.connect(user="root",
+                               host=db_data["ip"],
+                               port=db_data["port"],
+                               password=db_data["password"],
+                               database="users_db")
+    bytes_file = work_data.get_bytes_file(conn=db_connect, user_id=message.from_user.id)
+    db_connect.close()
     if bytes_file:
         shifts_file = BufferedInputFile(bytes_file, "shifts.txt")
         await message.answer_document(document=shifts_file, caption="📋 This is a list of your shifts")
@@ -66,26 +66,22 @@ async def my_shifts(message: types.Message, state: FSMContext) -> None:
 async def shifts_waiting(message: types.Message, state: FSMContext) -> None:
     state_name = await state.get_state()
     db_data = config_data.get_db(configparser.ConfigParser())
-    users_db_connect = mysql.connect(user="root",
-                                     host=db_data["ip"],
-                                     port=db_data["port"],
-                                     password=db_data["password"],
-                                     database="users_db")
-    user_data = db.users_get_user(conn=users_db_connect, user_id=message.from_user.id)
+    db_connect = mysql.connect(user="root",
+                               host=db_data["ip"],
+                               port=db_data["port"],
+                               password=db_data["password"],
+                               database="users_db")
+    user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
     if state_name == "UpdateShifts:waiting_for_shifts_add":
-        work_data.add_days(conn=users_db_connect, user_id=message.from_user.id, days=message.text)
+        work_data.add_days(conn=db_connect, user_id=message.from_user.id, days=message.text)
     elif state_name == "UpdateShifts:waiting_for_shifts_remove":
-        work_data.remove_days(conn=users_db_connect, user_id=message.from_user.id, days=message.text)
-    users_db_connect.close()
+        work_data.remove_days(conn=db_connect, user_id=message.from_user.id, days=message.text)
     if user_data["sp_uid"]:
-        sp_users_db_connect = mysql.connect(user="root",
-                                            host=db_data["ip"],
-                                            port=db_data["port"],
-                                            password=db_data["password"],
-                                            database="sp_users_db")
-        sp_user_data = db.sp_users_sub_info(conn=sp_users_db_connect, sp_uid=user_data["sp_uid"])
+        db_connect.connect(database="sp_users_db")
+        sp_user_data = db.sp_users_sub_info(conn=db_connect, sp_uid=user_data["sp_uid"])
         keyboard = await create_menu_keyboard(sp_user_data=sp_user_data)
     else:
         keyboard = await create_menu_keyboard()
+    db_connect.close()
     await message.answer("✅ Shifts updated successful", reply_markup=keyboard)
     await state.clear()
