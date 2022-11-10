@@ -1,4 +1,4 @@
-# Version 1.2.13 release
+# Version 1.2.14 release
 
 import copy
 import json
@@ -36,19 +36,16 @@ def take_date(element):
     return element
 
 
-def raw() -> str:
-    with open("work_data.txt", "r") as work_data_file:
-        work_data_file_raw = work_data_file.read()
-    return work_data_file_raw
-
-
-def converter(today: str) -> list:
+def converter(conn: CMySQLConnection, user_id: int, today: str) -> list:
     locations = copy.deepcopy(locations_sample)
 
-    # OPEN FILE
-    with open("work_data.txt", "r") as work_data_file:
-        work_data_extracted = work_data_file.readlines()
-        work_data = []
+    # READ SHIFTS
+    user_data = db.users_get_user(conn=conn, user_id=user_id)
+    if user_data["shifts"]:
+        work_data_extracted = json.loads(user_data["shifts"])
+    else:
+        work_data_extracted = []
+    work_data = []
 
     # REMOVE OUTDATED DAYS
     for work_day in work_data_extracted:
@@ -76,8 +73,7 @@ def converter(today: str) -> list:
 
     # WRITE RESULT
     work_data.sort(key=take_date)
-    with open("work_data.txt", "w") as work_data_file:
-        work_data_file.writelines('\n'.join(work_data))
+    db.users_configs_update_user(conn=conn, user_id=user_id, shifts=json.dumps(work_data))
 
     # WORK WITH LOCATIONS LIST
     for index in range(len(locations)):
@@ -102,7 +98,7 @@ def converter(today: str) -> list:
     return locations
 
 
-def user_converter(work_data_extracted_string: str) -> list:
+def user_converter(conn: CMySQLConnection, user_id: int, work_data_extracted_string: str) -> list:
     locations = copy.deepcopy(locations_sample)
     work_data_extracted = work_data_extracted_string.split()
     for index in range(len(locations)):
