@@ -1,4 +1,4 @@
-# Version 1.0.0 release
+# Version 1.0.1 release
 
 import configparser
 import mysql.connector as mysql
@@ -32,73 +32,57 @@ async def create_key_btn(message: types.Message, state: FSMContext) -> None:
 async def create_key_btn(message: types.Message, state: FSMContext) -> None:
     await state.clear()
     db_data = config_data.get_db(configparser.ConfigParser())
-    users_db_connect = mysql.connect(user="root",
-                                     host=db_data["ip"],
-                                     port=db_data["port"],
-                                     password=db_data["password"],
-                                     database="users_db")
-    user_data = db.users_get_user(conn=users_db_connect, user_id=message.from_user.id)
-    users_db_connect.close()
+    db_connect = mysql.connect(user="root",
+                               host=db_data["ip"],
+                               port=db_data["port"],
+                               password=db_data["password"],
+                               database="users_db")
+    user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
     if user_data["sp_uid"]:
-        sp_users_db_connect = mysql.connect(user="root",
-                                            host=db_data["ip"],
-                                            port=db_data["port"],
-                                            password=db_data["password"],
-                                            database="sp_users_db")
-        sp_user_data = db.sp_users_sub_info(conn=sp_users_db_connect, sp_uid=user_data["sp_uid"])
-        sp_users_db_connect.close()
+        db_connect.connect(database="sp_users_db")
+        sp_user_data = db.sp_users_sub_info(conn=db_connect, sp_uid=user_data["sp_uid"])
         if sp_user_data["subscription"] == "admin":
             keyboard = await bot_keyboards.create_menu_keyboard(sp_user_data=sp_user_data)
             await message.answer("🔑 Key generator:\n"
                                  "1. Type [standard/premium].\n"
                                  "2. Days [15]\n\n"
                                  "Usage: /key <b>standard</b> <b>30</b>", reply_markup=keyboard, parse_mode="HTML")
+    db_connect.close()
 
 
 @router.message(Text(text="🚫 Deactivate key"))
 async def deactivate_key_btn(message: types.Message, state: FSMContext) -> None:
     await state.clear()
     db_data = config_data.get_db(configparser.ConfigParser())
-    users_db_connect = mysql.connect(user="root",
-                                     host=db_data["ip"],
-                                     port=db_data["port"],
-                                     password=db_data["password"],
-                                     database="users_db")
-    user_data = db.users_get_user(conn=users_db_connect, user_id=message.from_user.id)
-    users_db_connect.close()
+    db_connect = mysql.connect(user="root",
+                               host=db_data["ip"],
+                               port=db_data["port"],
+                               password=db_data["password"],
+                               database="users_db")
+    user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
     if user_data["sp_uid"]:
-        sp_users_db_connect = mysql.connect(user="root",
-                                            host=db_data["ip"],
-                                            port=db_data["port"],
-                                            password=db_data["password"],
-                                            database="sp_users_db")
-        sp_user_data = db.sp_users_sub_info(conn=sp_users_db_connect, sp_uid=user_data["sp_uid"])
-        sp_users_db_connect.close()
+        db_connect.connect(database="sp_users_db")
+        sp_user_data = db.sp_users_sub_info(conn=db_connect, sp_uid=user_data["sp_uid"])
         if sp_user_data["subscription"] == "admin":
             keyboard = await bot_keyboards.create_menu_keyboard(sp_user_data=sp_user_data)
             await message.answer("🚫 Key deactivator:\n\n"
                                  "Usage: /deactivate <b>key</b>", reply_markup=keyboard, parse_mode="HTML")
+    db_connect.close()
 
 
 @router.message(Command(commands=["key"]))
-async def keygen(message: types.Message, command: CommandObject, state: FSMContext) -> None:
+async def key_generator(message: types.Message, command: CommandObject, state: FSMContext) -> None:
     await state.clear()
     db_data = config_data.get_db(configparser.ConfigParser())
-    users_db_connect = mysql.connect(user="root",
-                                     host=db_data["ip"],
-                                     port=db_data["port"],
-                                     password=db_data["password"],
-                                     database="users_db")
-    user_data = db.users_get_user(conn=users_db_connect, user_id=message.from_user.id)
-    users_db_connect.close()
+    db_connect = mysql.connect(user="root",
+                               host=db_data["ip"],
+                               port=db_data["port"],
+                               password=db_data["password"],
+                               database="users_db")
+    user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
     if user_data["sp_uid"]:
-        sp_users_db_connect = mysql.connect(user="root",
-                                            host=db_data["ip"],
-                                            port=db_data["port"],
-                                            password=db_data["password"],
-                                            database="sp_users_db")
-        sp_user_data = db.sp_users_sub_info(conn=sp_users_db_connect, sp_uid=user_data["sp_uid"])
-        sp_users_db_connect.close()
+        db_connect.connect(database="sp_users_db")
+        sp_user_data = db.sp_users_sub_info(conn=db_connect, sp_uid=user_data["sp_uid"])
         if sp_user_data["subscription"] == "admin" and command.args:
             parameters = command.args.split()
             if len(parameters) == 2:
@@ -108,13 +92,8 @@ async def keygen(message: types.Message, command: CommandObject, state: FSMConte
                         key_days = int(parameters[1])
                         letters = string.ascii_lowercase + string.digits
                         key = ''.join(random.choice(letters) for i in range(16))
-                        keys_db_connect = mysql.connect(user="root",
-                                                        host=db_data["ip"],
-                                                        port=db_data["port"],
-                                                        password=db_data["password"],
-                                                        database="keys_db")
-                        db.keys_add_key(conn=keys_db_connect, key=key, key_type=key_type, key_days=key_days)
-                        keys_db_connect.close()
+                        db_connect.connect(database="keys_db")
+                        db.keys_add_key(conn=db_connect, key=key, key_type=key_type, key_days=key_days)
                         if key_type == "admin":
                             await message.reply(f"🔑 <b>Key</b>: <code>{key}</code>\n"
                                                 f"     ├─ 🖥 <b>Type</b>: <code>Admin</code>\n"
@@ -133,69 +112,50 @@ async def keygen(message: types.Message, command: CommandObject, state: FSMConte
                                                 f"     └─ 📅 <b>Days</b>: <code>{key_days}</code>", parse_mode="HTML")
                     except ValueError:
                         pass
+    db_connect.close()
 
 
 @router.message(Command(commands=["deactivate"]))
 async def key_deactivator(message: types.Message, command: CommandObject, state: FSMContext) -> None:
     await state.clear()
     db_data = config_data.get_db(configparser.ConfigParser())
-    users_db_connect = mysql.connect(user="root",
-                                     host=db_data["ip"],
-                                     port=db_data["port"],
-                                     password=db_data["password"],
-                                     database="users_db")
-    user_data = db.users_get_user(conn=users_db_connect, user_id=message.from_user.id)
-    users_db_connect.close()
+    db_connect = mysql.connect(user="root",
+                               host=db_data["ip"],
+                               port=db_data["port"],
+                               password=db_data["password"],
+                               database="users_db")
+    user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
     if user_data["sp_uid"]:
-        sp_users_db_connect = mysql.connect(user="root",
-                                            host=db_data["ip"],
-                                            port=db_data["port"],
-                                            password=db_data["password"],
-                                            database="sp_users_db")
-        sp_user_data = db.sp_users_sub_info(conn=sp_users_db_connect, sp_uid=user_data["sp_uid"])
-        sp_users_db_connect.close()
+        db_connect.connect(database="sp_users_db")
+        sp_user_data = db.sp_users_sub_info(conn=db_connect, sp_uid=user_data["sp_uid"])
         if sp_user_data["subscription"] == "admin" and command.args:
             parameters = command.args.split()
             if len(parameters) == 1:
                 key = parameters[0]
-                keys_db_connect = mysql.connect(user="root",
-                                                host=db_data["ip"],
-                                                port=db_data["port"],
-                                                password=db_data["password"],
-                                                database="keys_db")
-                db.keys_remove_key(conn=keys_db_connect, key=key)
-                keys_db_connect.close()
+                db_connect.connect(database="keys_db")
+                db.keys_remove_key(conn=db_connect, key=key)
                 await message.reply("✅ Key was successfully removed!")
+    db_connect.close()
 
 
 @router.message(WaitKey.waiting_for_key)
 async def key_waiting(message: types.Message, state: FSMContext) -> None:
     db_data = config_data.get_db(configparser.ConfigParser())
-    users_db_connect = mysql.connect(user="root",
-                                     host=db_data["ip"],
-                                     port=db_data["port"],
-                                     password=db_data["password"],
-                                     database="users_db")
-    user_data = db.users_get_user(conn=users_db_connect, user_id=message.from_user.id)
-    users_db_connect.close()
+    db_connect = mysql.connect(user="root",
+                               host=db_data["ip"],
+                               port=db_data["port"],
+                               password=db_data["password"],
+                               database="users_db")
+    user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
     keyboard = await bot_keyboards.create_menu_keyboard()
     if user_data["sp_uid"]:
-        keys_db_connect = mysql.connect(user="root",
-                                        host=db_data["ip"],
-                                        port=db_data["port"],
-                                        password=db_data["password"],
-                                        database="keys_db")
-        key_data = db.keys_activate_key(conn=keys_db_connect, key=message.text)
-        keys_db_connect.close()
+        db_connect.connect(database="keys_db")
+        key_data = db.keys_activate_key(conn=db_connect, key=message.text)
         if key_data:
             key_type = key_data["key_type"]
             key_days = key_data["key_days"]
-            sp_users_db_connect = mysql.connect(user="root",
-                                                host=db_data["ip"],
-                                                port=db_data["port"],
-                                                password=db_data["password"],
-                                                database="sp_users_db")
-            sp_user_data = db.sp_users_sub_info(conn=sp_users_db_connect, sp_uid=user_data["sp_uid"])
+            db_connect.connect(database="sp_users_db")
+            sp_user_data = db.sp_users_sub_info(conn=db_connect, sp_uid=user_data["sp_uid"])
             if sp_user_data["expire"]:
                 if sp_user_data["expire"] > datetime.now():
                     expire_date = sp_user_data["expire"] + timedelta(days=key_days)
@@ -206,7 +166,7 @@ async def key_waiting(message: types.Message, state: FSMContext) -> None:
             expire_text = datetime.strftime(expire_date, "<code>%d</code> <code>%B</code>, <code>%H:%M</code>")
             if key_type == "trial":
                 if not sp_user_data["used_trial"]:
-                    db.sp_users_update_user(conn=sp_users_db_connect, sp_uid=user_data["sp_uid"],
+                    db.sp_users_update_user(conn=db_connect, sp_uid=user_data["sp_uid"],
                                             subscription="trial", expire=expire_date.isoformat(), used_trial=True)
                     await message.answer("✅ <b>Successfully activated!</b>\n"
                                          f"     ├─ 🆓 <b>Subscription</b>: <code>Trial</code>"
@@ -216,7 +176,7 @@ async def key_waiting(message: types.Message, state: FSMContext) -> None:
                 else:
                     await message.answer("🚫 You have already used the trial period", reply_markup=keyboard)
             else:
-                db.sp_users_update_user(conn=sp_users_db_connect, sp_uid=user_data["sp_uid"],
+                db.sp_users_update_user(conn=db_connect, sp_uid=user_data["sp_uid"],
                                         subscription=key_type, expire=expire_date.isoformat())
                 if key_type == "standard":
                     await message.answer("✅ <b>Successfully activated!</b>\n"
@@ -242,9 +202,9 @@ async def key_waiting(message: types.Message, state: FSMContext) -> None:
                                          f"     ├─ 📅 <b>Days</b>: <code>∞</code>"
                                          f"     └─ 🔥 <b>Expire</b>: <code>Never</code>",
                                          reply_markup=keyboard, parse_mode="HTML")
-            sp_users_db_connect.close()
         else:
             await message.answer("❌ Key not found!", reply_markup=keyboard)
     else:
         await message.answer("🚫 You aren't authorized", reply_markup=keyboard)
+    db_connect.close()
     await state.clear()
