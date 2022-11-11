@@ -1,4 +1,4 @@
-# Version 2.1.0 release
+# Version 2.1.1 release
 
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, KeyboardButton, ReplyKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
@@ -44,14 +44,18 @@ async def create_menu_keyboard(sp_user_data: Optional[dict] = None) -> ReplyKeyb
     return menu_keyboard.as_markup(resize_keyboard=True)
 
 
-async def create_subscriptions_keyboard() -> ReplyKeyboardMarkup:
+async def create_subscriptions_keyboard(sp_user_data: dict) -> ReplyKeyboardMarkup:
     subscriptions_keyboard = ReplyKeyboardBuilder()
     buy_30_premium_btn = KeyboardButton(text="💎 30 day's premium")
     buy_30_standard_btn = KeyboardButton(text="🔹 30 day's standard")
     trial_btn = KeyboardButton(text="🆓 7 day's trial")
     menu_btn = KeyboardButton(text="🎛 Menu")
-    subscriptions_keyboard.row(buy_30_premium_btn, buy_30_standard_btn)
-    subscriptions_keyboard.row(trial_btn)
+    if not sp_user_data["used_trial_btn"]:
+        subscriptions_keyboard.row(buy_30_premium_btn, buy_30_standard_btn)
+        subscriptions_keyboard.row(trial_btn)
+    else:
+        subscriptions_keyboard.row(buy_30_premium_btn)
+        subscriptions_keyboard.row(buy_30_standard_btn)
     subscriptions_keyboard.row(menu_btn)
     return subscriptions_keyboard.as_markup(resize_keyboard=True)
 
