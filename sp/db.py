@@ -1,14 +1,15 @@
-# Version 2.2.2 release
+# Version 2.2.3 release
 
 from mysql.connector.connection_cext import CMySQLConnection
 
 
 def keys_activate_key(conn: CMySQLConnection, key: str):
     cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM activation_keys WHERE activation_key = %s", (key,))
+    cursor.execute("SELECT * FROM activation_keys WHERE activation_key=%s", (key,))
     key_data = cursor.fetchone()
     if key_data:
-        cursor.execute("DELETE FROM activation_keys WHERE activation_key = %s", (key,))
+        cursor.execute("DELETE FROM activation_keys WHERE activation_key=%s", (key,))
+        conn.commit()
         cursor.close()
         return key_data
     else:
@@ -66,7 +67,7 @@ def sp_users_update_user(conn: CMySQLConnection, sp_uid: int, **kwargs) -> None:
     for arg in kwargs.items():
         arg_name = arg[0]
         arg_data = arg[1]
-        cursor.execute(f"UPDATE users_configs SET {arg_name}=%s WHERE sp_uid=%s", (arg_data, sp_uid))
+        cursor.execute(f"UPDATE sp_users_subscriptions SET {arg_name}=%s WHERE sp_uid=%s", (arg_data, sp_uid))
     conn.commit()
     cursor.close()
 
