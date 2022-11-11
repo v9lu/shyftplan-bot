@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS sp_users_subscriptions (
     sp_uid INT NOT NULL PRIMARY KEY,
     subscription TINYTEXT DEFAULT NULL,
     expire DATETIME DEFAULT NULL,
+    used_trial_btn BOOL DEFAULT 0,
     used_trial BOOL DEFAULT 0
 );
 
