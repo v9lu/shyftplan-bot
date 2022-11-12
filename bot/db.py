@@ -1,4 +1,4 @@
-# Version 2.2.3 release
+# Version 2.2.4 release
 
 from mysql.connector.connection_cext import CMySQLConnection
 
@@ -81,8 +81,9 @@ def users_add_user(conn: CMySQLConnection, user_id: int) -> None:
 
 
 def users_get_user(conn: CMySQLConnection, user_id: int) -> dict:
-    cursor = conn.cursor(buffered=True, dictionary=True)
-    cursor.execute("SELECT * FROM users_configs, users_statistics WHERE users_configs.user_id=%s", (user_id,))
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM users_configs, users_statistics "
+                   "WHERE users_configs.user_id=%s AND users_statistics.user_id=%s", (user_id, user_id))
     user_data = cursor.fetchone()
     cursor.close()
     return user_data
