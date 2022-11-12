@@ -1,4 +1,4 @@
-# Version 2.1.2 release
+# Version 2.1.3 release
 
 import configparser
 import mysql.connector as mysql
@@ -16,6 +16,7 @@ router = Router()
 
 @router.message(Command(commands=["start"]))
 @router.message(Text(text="🎛 Menu"))
+@router.message(Text(text="📊 Statistic"))
 async def bot_start(message: types.Message, state: FSMContext) -> None:
     await state.clear()
     db_data = config_data.get_db(configparser.ConfigParser())
@@ -88,7 +89,8 @@ async def buy_subscription(message: types.Message, state: FSMContext) -> None:
         keyboard = await create_subscriptions_keyboard(sp_user_data=sp_user_data)
         await message.answer("💳 Available plans", reply_markup=keyboard)
     else:
-        await message.answer("🚫 You aren't authorized")
+        keyboard = await create_subscriptions_keyboard()
+        await message.answer("💳 Available plans", reply_markup=keyboard)
     db_connect.close()
 
 
