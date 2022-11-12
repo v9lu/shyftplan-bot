@@ -1,4 +1,4 @@
-# Version 2.2.0 release
+# Version 2.2.1 release
 
 import configparser
 import mysql.connector as mysql
@@ -77,7 +77,7 @@ async def trial_7(message: types.Message, state: FSMContext):
             await message.answer("🚫 You have already got the trial key!", reply_markup=keyboard)
     else:
         keyboard = await bot_keyboards.create_menu_keyboard()
-        await message.answer("🚫 You aren't authorized!", reply_markup=keyboard)
+        await message.answer("🚫 You aren't authorized! Use command /auth before", reply_markup=keyboard)
     db_connect.close()
 
 
@@ -102,12 +102,22 @@ async def successful_payment(message: types.Message, state: FSMContext):
         letters = string.ascii_lowercase + string.digits
         key = ''.join(random.choice(letters) for i in range(16))
         db.keys_add_key(conn=db_connect, key=key, key_type=key_type, key_days=key_days)
+        db_connect.connect("users_db")
+        user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
+        if user_data["sp_uid"]:
+            db_connect.connect("sp_users_db")
+            sp_user_data = db.sp_users_sub_info(conn=db_connect, sp_uid=user_data["sp_uid"])
+            keyboard = await bot_keyboards.create_menu_keyboard(sp_user_data=sp_user_data)
+        else:
+            keyboard = bot_keyboards.create_menu_keyboard()
         if key_type == "premium":
             await message.reply(f"🔑 <b>Key</b>: <code>{key}</code>\n"
                                 f"     ├─ 💎 <b>Type</b>: <code>Premium</code>\n"
-                                f"     └─ 📅 <b>Days</b>: <code>{key_days}</code>", parse_mode="HTML")
+                                f"     └─ 📅 <b>Days</b>: <code>{key_days}</code>",
+                                parse_mode="HTML", reply_markup=keyboard)
         elif key_type == "standard":
             await message.reply(f"🔑 <b>Key</b>: <code>{key}</code>\n"
                                 f"     ├─ 🔹 <b>Type</b>: <code>Standard</code>\n"
-                                f"     └─ 📅 <b>Days</b>: <code>{key_days}</code>", parse_mode="HTML")
+                                f"     └─ 📅 <b>Days</b>: <code>{key_days}</code>",
+                                parse_mode="HTML", reply_markup=keyboard)
     db_connect.close()
