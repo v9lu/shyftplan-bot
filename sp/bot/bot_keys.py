@@ -8,7 +8,6 @@ from aiogram import Bot, Router, types
 from aiogram.filters import Command, Text, CommandObject
 from aiogram.fsm.context import FSMContext
 from aiogram.filters.state import State, StatesGroup
-from aiogram.types import ReplyKeyboardRemove
 from datetime import datetime, timedelta
 
 import bot_keyboards
@@ -25,7 +24,8 @@ class WaitKey(StatesGroup):
 @router.message(Text(text="🔑 Activate key"))
 async def create_key_btn(message: types.Message, state: FSMContext) -> None:
     await state.set_state(WaitKey.waiting_for_key)
-    await message.answer("🔑 Please enter your key", reply_markup=ReplyKeyboardRemove())
+    keyboard = await bot_keyboards.create_menu_button_keyboard()
+    await message.answer("🔑 Please enter your key", reply_markup=keyboard)
 
 
 @router.message(Text(text="🔑 Create key"))
@@ -46,7 +46,8 @@ async def create_key_btn(message: types.Message, state: FSMContext) -> None:
             await message.answer("🔑 Key generator:\n"
                                  "1. Type [standard/premium].\n"
                                  "2. Days [15]\n\n"
-                                 "Usage: /key <b>standard</b> <b>30</b>", reply_markup=keyboard, parse_mode="HTML")
+                                 "Usage: /key <b>standard</b> <b>30</b>",
+                                 reply_markup=keyboard, parse_mode="HTML")
     db_connect.close()
 
 
@@ -66,7 +67,8 @@ async def deactivate_key_btn(message: types.Message, state: FSMContext) -> None:
         if sp_user_data["subscription"] == "admin":
             keyboard = await bot_keyboards.create_menu_keyboard(sp_user_data=sp_user_data)
             await message.answer("🚫 Key deactivator:\n\n"
-                                 "Usage: /deactivate <b>key</b>", reply_markup=keyboard, parse_mode="HTML")
+                                 "Usage: /deactivate <b>key</b>",
+                                 reply_markup=keyboard, parse_mode="HTML")
     db_connect.close()
 
 
@@ -177,7 +179,8 @@ async def key_waiting(message: types.Message, state: FSMContext, bot: Bot) -> No
                                          "(if not connected yet), while you can configure your bot</b> ❤️‍🔥",
                                          reply_markup=keyboard, parse_mode="HTML")
                     await bot.send_message(1630691291, f"⚡ <b>User <code>{message.from_user.id}</code> successfully "
-                                                       f"activated the key, now you can connect him to the bot</b>",
+                                                       f"activated <code>{key_type}</code> key, "
+                                                       f"now you can connect him to the bot</b>",
                                            parse_mode="HTML")
                 else:
                     await message.answer("🚫 You have already used the trial period", reply_markup=keyboard)
@@ -193,7 +196,8 @@ async def key_waiting(message: types.Message, state: FSMContext, bot: Bot) -> No
                                          "(if not connected yet), while you can configure your bot</b> ❤️‍🔥",
                                          reply_markup=keyboard, parse_mode="HTML")
                     await bot.send_message(1630691291, f"⚡ <b>User <code>{message.from_user.id}</code> successfully "
-                                                       f"activated the key, now you can connect him to the bot</b>",
+                                                       f"activated <code>{key_type}</code> key, "
+                                                       f"now you can connect him to the bot</b>",
                                            parse_mode="HTML")
                 elif key_type == "premium":
                     await message.answer("✅ <b>Successfully activated!</b>\n"
@@ -204,7 +208,8 @@ async def key_waiting(message: types.Message, state: FSMContext, bot: Bot) -> No
                                          "(if not connected yet), while you can configure your bot</b> ❤️‍🔥",
                                          reply_markup=keyboard, parse_mode="HTML")
                     await bot.send_message(1630691291, f"⚡ <b>User <code>{message.from_user.id}</code> successfully "
-                                                       f"activated the key, now you can connect him to the bot</b>",
+                                                       f"activated <code>{key_type}</code> key, "
+                                                       f"now you can connect him to the bot</b>",
                                            parse_mode="HTML")
                 elif key_type == "friend":
                     await message.answer("✅ <b>Successfully activated!</b>\n"
@@ -215,7 +220,8 @@ async def key_waiting(message: types.Message, state: FSMContext, bot: Bot) -> No
                                          "(if not connected yet), while you can configure your bot</b> ❤️‍🔥",
                                          reply_markup=keyboard, parse_mode="HTML")
                     await bot.send_message(1630691291, f"⚡ <b>User <code>{message.from_user.id}</code> successfully "
-                                                       f"activated the key, now you can connect him to the bot</b>",
+                                                       f"activated <code>{key_type}</code> key, "
+                                                       f"now you can connect him to the bot</b>",
                                            parse_mode="HTML")
                 elif key_type == "admin":
                     await message.answer("✅ <b>Successfully activated!</b>\n"
@@ -226,13 +232,14 @@ async def key_waiting(message: types.Message, state: FSMContext, bot: Bot) -> No
                                          "(if not connected yet), while you can configure your bot</b> ❤️‍🔥",
                                          reply_markup=keyboard, parse_mode="HTML")
                     await bot.send_message(1630691291, f"⚡ <b>User <code>{message.from_user.id}</code> successfully "
-                                                       f"activated the key, now you can connect him to the bot</b>",
+                                                       f"activated <code>{key_type}</code> key, "
+                                                       f"now you can connect him to the bot</b>",
                                            parse_mode="HTML")
         else:
             keyboard = await bot_keyboards.create_menu_keyboard(sp_user_data=sp_user_data)
             await message.answer("❌ Key not found!", reply_markup=keyboard)
     else:
         keyboard = await bot_keyboards.create_menu_keyboard()
-        await message.answer("🚫 You aren't authorized", reply_markup=keyboard)
+        await message.answer("🚫 You aren't authorized. Use command /auth before", reply_markup=keyboard)
     await state.clear()
     db_connect.close()
