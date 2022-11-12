@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS sp_users_subscriptions (
 USE users_db;
 
 CREATE TABLE IF NOT EXISTS users_configs (
-    user_id INT NOT NULL PRIMARY KEY,
+    user_id BIGINT NOT NULL PRIMARY KEY,
     sp_email TINYTEXT DEFAULT NULL,
     sp_token TINYTEXT DEFAULT NULL,
     sp_eid INT DEFAULT NULL,
@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS users_configs (
 );
 
 CREATE TABLE IF NOT EXISTS users_statistics (
-    user_id INT NOT NULL PRIMARY KEY,
+    user_id BIGINT NOT NULL PRIMARY KEY,
     shifted_shifts INT DEFAULT 0,
     shifted_hours FLOAT(8, 2) DEFAULT 0,
     earned FLOAT(9, 2) DEFAULT 0
