@@ -1,4 +1,4 @@
-# Version 2.1.1 release
+# Version 2.1.2 release
 
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, KeyboardButton, ReplyKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
@@ -14,48 +14,44 @@ async def create_menu_button_keyboard() -> ReplyKeyboardMarkup:
 
 async def create_menu_keyboard(sp_user_data: Optional[dict] = None) -> ReplyKeyboardMarkup:
     menu_keyboard = ReplyKeyboardBuilder()
+    update_shifts_btn = KeyboardButton(text="♻️ Update shifts")
+    settings_btn = KeyboardButton(text="⚙️ Settings")
+    buy_subscription_btn = KeyboardButton(text="💳️ Buy subscription")
+    activate_key_btn = KeyboardButton(text="🔑 Activate key")
+    create_key_btn = KeyboardButton(text="🔑 Create key")
+    deactivate_key_btn = KeyboardButton(text="🚫 Deactivate key")
+    statistic_btn = KeyboardButton(text="📊 Statistic")
+    menu_keyboard.row(update_shifts_btn)
+    menu_keyboard.row(settings_btn)
     if sp_user_data is None:
-        update_shifts_btn = KeyboardButton(text="♻️ Update shifts")
-        settings_btn = KeyboardButton(text="⚙️ Settings")
-        menu_keyboard.row(update_shifts_btn)
-        menu_keyboard.row(settings_btn)
+        menu_keyboard.row(buy_subscription_btn, activate_key_btn)
     else:
-        if sp_user_data["subscription"] == "friend":
-            update_shifts_btn = KeyboardButton(text="♻️ Update shifts")
-            settings_btn = KeyboardButton(text="⚙️ Settings")
-            menu_keyboard.row(update_shifts_btn)
-            menu_keyboard.row(settings_btn)
-        elif sp_user_data["subscription"] == "admin":
-            update_shifts_btn = KeyboardButton(text="♻️ Update shifts")
-            settings_btn = KeyboardButton(text="⚙️ Settings")
-            create_key_btn = KeyboardButton(text="🔑 Create key")
-            deactivate_key_btn = KeyboardButton(text="🚫 Deactivate key")
-            menu_keyboard.row(update_shifts_btn)
-            menu_keyboard.row(settings_btn)
+        if sp_user_data["subscription"] == "admin":
             menu_keyboard.row(create_key_btn, deactivate_key_btn)
+        elif sp_user_data["subscription"] == "friend":
+            menu_keyboard.row(activate_key_btn)
         else:
-            update_shifts_btn = KeyboardButton(text="♻️ Update shifts")
-            settings_btn = KeyboardButton(text="⚙️ Settings")
-            buy_subscription_btn = KeyboardButton(text="💳️ Buy subscription")
-            activate_key_btn = KeyboardButton(text="🔑 Activate key")
-            menu_keyboard.row(update_shifts_btn)
-            menu_keyboard.row(settings_btn)
             menu_keyboard.row(buy_subscription_btn, activate_key_btn)
+    menu_keyboard.row(statistic_btn)
     return menu_keyboard.as_markup(resize_keyboard=True)
 
 
-async def create_subscriptions_keyboard(sp_user_data: dict) -> ReplyKeyboardMarkup:
+async def create_subscriptions_keyboard(sp_user_data: Optional[dict] = None) -> ReplyKeyboardMarkup:
     subscriptions_keyboard = ReplyKeyboardBuilder()
     buy_30_premium_btn = KeyboardButton(text="💎 30 day's premium")
     buy_30_standard_btn = KeyboardButton(text="🔹 30 day's standard")
     trial_btn = KeyboardButton(text="🆓 7 day's trial")
     menu_btn = KeyboardButton(text="🎛 Menu")
-    if not sp_user_data["used_trial_btn"]:
-        subscriptions_keyboard.row(buy_30_premium_btn, buy_30_standard_btn)
-        subscriptions_keyboard.row(trial_btn)
-    else:
+    if sp_user_data is None:
         subscriptions_keyboard.row(buy_30_premium_btn)
         subscriptions_keyboard.row(buy_30_standard_btn)
+    else:
+        if not sp_user_data["used_trial_btn"]:
+            subscriptions_keyboard.row(buy_30_premium_btn, buy_30_standard_btn)
+            subscriptions_keyboard.row(trial_btn)
+        else:
+            subscriptions_keyboard.row(buy_30_premium_btn)
+            subscriptions_keyboard.row(buy_30_standard_btn)
     subscriptions_keyboard.row(menu_btn)
     return subscriptions_keyboard.as_markup(resize_keyboard=True)
 
