@@ -1,4 +1,4 @@
-# Version 2.1.3 release
+# Version 2.1.4 release
 
 import configparser
 import mysql.connector as mysql
@@ -122,7 +122,6 @@ async def change_config(call: types.CallbackQuery) -> None:
             updated_user_data = db.users_get_user(conn=db_connect, user_id=call.from_user.id)
             keyboard = await create_settings_keyboard(user_data=updated_user_data)
             await call.message.edit_text("🚦Settings:", reply_markup=keyboard)
-            await call.answer()
         else:
             if user_data["prog_sleep"] == 5.0:
                 db.users_configs_update_user(conn=db_connect, user_id=call.from_user.id,
@@ -136,7 +135,7 @@ async def change_config(call: types.CallbackQuery) -> None:
             updated_user_data = db.users_get_user(conn=db_connect, user_id=call.from_user.id)
             keyboard = await create_settings_keyboard(user_data=updated_user_data)
             await call.message.edit_text("🚦Settings:", reply_markup=keyboard)
-            await call.answer()
+        await call.answer()
     else:
         await call.answer(text="💎 Only for premium subscription!")
     db_connect.close()
