@@ -1,4 +1,4 @@
-# Version 1.1.0 release
+# Version 1.2.0 release
 
 import configparser
 import mysql.connector as mysql
@@ -22,7 +22,7 @@ class WaitKey(StatesGroup):
 
 
 @router.message(Text(text="🔑 Activate key"))
-async def create_key_btn(message: types.Message, state: FSMContext) -> None:
+async def activate_key_btn(message: types.Message, state: FSMContext) -> None:
     await state.set_state(WaitKey.waiting_for_key)
     keyboard = await bot_keyboards.create_menu_button_keyboard()
     await message.answer("🔑 Please enter your key", reply_markup=keyboard)
@@ -40,7 +40,7 @@ async def create_key_btn(message: types.Message, state: FSMContext) -> None:
     user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
     if user_data["sp_uid"]:
         db_connect.connect(database="sp_users_db")
-        sp_user_data = db.sp_users_sub_info(conn=db_connect, sp_uid=user_data["sp_uid"])
+        sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
         if sp_user_data["subscription"] == "admin":
             keyboard = await bot_keyboards.create_menu_keyboard(sp_user_data=sp_user_data)
             await message.answer("🔑 Key generator:\n"
@@ -63,7 +63,7 @@ async def deactivate_key_btn(message: types.Message, state: FSMContext) -> None:
     user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
     if user_data["sp_uid"]:
         db_connect.connect(database="sp_users_db")
-        sp_user_data = db.sp_users_sub_info(conn=db_connect, sp_uid=user_data["sp_uid"])
+        sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
         if sp_user_data["subscription"] == "admin":
             keyboard = await bot_keyboards.create_menu_keyboard(sp_user_data=sp_user_data)
             await message.answer("🚫 Key deactivator:\n\n"
@@ -84,7 +84,7 @@ async def key_generator(message: types.Message, command: CommandObject, state: F
     user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
     if user_data["sp_uid"]:
         db_connect.connect(database="sp_users_db")
-        sp_user_data = db.sp_users_sub_info(conn=db_connect, sp_uid=user_data["sp_uid"])
+        sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
         if sp_user_data["subscription"] == "admin" and command.args:
             parameters = command.args.split()
             if len(parameters) == 2:
@@ -129,7 +129,7 @@ async def key_deactivator(message: types.Message, command: CommandObject, state:
     user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
     if user_data["sp_uid"]:
         db_connect.connect(database="sp_users_db")
-        sp_user_data = db.sp_users_sub_info(conn=db_connect, sp_uid=user_data["sp_uid"])
+        sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
         if sp_user_data["subscription"] == "admin" and command.args:
             parameters = command.args.split()
             if len(parameters) == 1:
@@ -153,7 +153,7 @@ async def key_waiting(message: types.Message, state: FSMContext, bot: Bot) -> No
         db_connect.connect(database="keys_db")
         key_data = db.keys_activate_key(conn=db_connect, key=message.text)
         db_connect.connect(database="sp_users_db")
-        sp_user_data = db.sp_users_sub_info(conn=db_connect, sp_uid=user_data["sp_uid"])
+        sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
         keyboard = await bot_keyboards.create_menu_keyboard(sp_user_data=sp_user_data)
         if key_data:
             key_type = key_data["key_type"]
@@ -169,8 +169,9 @@ async def key_waiting(message: types.Message, state: FSMContext, bot: Bot) -> No
                                             "<code>%d</code> <code>%B</code> <code>%Y</code>, <code>%H:%M</code>")
             if key_type == "trial":
                 if not sp_user_data["used_trial"]:
-                    db.sp_users_update_user(conn=db_connect, sp_uid=user_data["sp_uid"],
-                                            subscription="trial", expire=expire_date.isoformat(), used_trial=True)
+                    db.sp_users_subscriptions_update_user(conn=db_connect, sp_uid=user_data["sp_uid"],
+                                                          subscription="trial", expire=expire_date.isoformat(),
+                                                          used_trial=True)
                     await message.answer("✅ <b>Successfully activated!</b>\n"
                                          f"     ├─ 🆓 <b>Subscription</b>: <code>Trial</code>\n"
                                          f"     ├─ 📅 <b>Days</b>: <code>{key_days}</code>\n"
@@ -185,8 +186,8 @@ async def key_waiting(message: types.Message, state: FSMContext, bot: Bot) -> No
                 else:
                     await message.answer("🚫 You have already used the trial period", reply_markup=keyboard)
             else:
-                db.sp_users_update_user(conn=db_connect, sp_uid=user_data["sp_uid"],
-                                        subscription=key_type, expire=expire_date.isoformat())
+                db.sp_users_subscriptions_update_user(conn=db_connect, sp_uid=user_data["sp_uid"],
+                                                      subscription=key_type, expire=expire_date.isoformat())
                 if key_type == "standard":
                     await message.answer("✅ <b>Successfully activated!</b>\n"
                                          f"     ├─ 🔹 <b>Subscription</b>: <code>Standard</code>\n"
@@ -240,6 +241,7 @@ async def key_waiting(message: types.Message, state: FSMContext, bot: Bot) -> No
             await message.answer("❌ Key not found!", reply_markup=keyboard)
     else:
         keyboard = await bot_keyboards.create_menu_keyboard()
-        await message.answer("🚫 You aren't authorized. Use command /auth before", reply_markup=keyboard)
+        await message.answer("🚫 You aren't authorized! For a login, use a special button or /auth command",
+                             reply_markup=keyboard)
     await state.clear()
     db_connect.close()
