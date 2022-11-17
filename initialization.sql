@@ -28,20 +28,24 @@ CREATE TABLE IF NOT EXISTS sp_users_subscriptions (
     used_trial BOOL DEFAULT 0
 );
 
-USE users_db;
-
-CREATE TABLE IF NOT EXISTS users_configs (
-    user_id BIGINT NOT NULL PRIMARY KEY,
-    sp_email TINYTEXT DEFAULT NULL,
-    sp_token TINYTEXT DEFAULT NULL,
-    sp_eid INT DEFAULT NULL,
-    sp_uid INT DEFAULT NULL,
+CREATE TABLE IF NOT EXISTS sp_users_configs (
+    sp_uid INT NOT NULL PRIMARY KEY,
     prog_status BOOL NOT NULL DEFAULT 1,
     prog_open_shifts BOOL NOT NULL DEFAULT 1,
     prog_shift_offers BOOL NOT NULL DEFAULT 1,
     prog_news BOOL NOT NULL DEFAULT 0,
     prog_sleep FLOAT(3, 2) NOT NULL DEFAULT 5,
     shifts MEDIUMTEXT DEFAULT NULL
+);
+
+USE users_db;
+
+CREATE TABLE IF NOT EXISTS users_auth (
+    user_id BIGINT NOT NULL PRIMARY KEY,
+    sp_email TINYTEXT DEFAULT NULL,
+    sp_token TINYTEXT DEFAULT NULL,
+    sp_eid INT DEFAULT NULL,
+    sp_uid INT DEFAULT NULL
 );
 
 CREATE TABLE IF NOT EXISTS users_statistics (
