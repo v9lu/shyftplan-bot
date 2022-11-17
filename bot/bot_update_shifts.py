@@ -1,4 +1,4 @@
-# Version 2.1.1 release
+# Version 2.2.0 release
 
 import configparser
 import mysql.connector as mysql
@@ -52,13 +52,20 @@ async def my_shifts(message: types.Message, state: FSMContext) -> None:
                                port=db_data["port"],
                                password=db_data["password"],
                                database="users_db")
-    bytes_file = work_data.get_bytes_file(conn=db_connect, user_id=message.from_user.id)
-    db_connect.close()
-    if bytes_file:
-        shifts_file = BufferedInputFile(bytes_file, "shifts.txt")
-        await message.answer_document(document=shifts_file, caption="📋 This is a list of your shifts")
+    user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
+    if user_data["sp_uid"]:
+        db_connect.connect("sp_users_db")
+        bytes_file = work_data.get_bytes_file(conn=db_connect, sp_uid=user_data["sp_uid"])
+        if bytes_file:
+            shifts_file = BufferedInputFile(bytes_file, "shifts.txt")
+            await message.answer_document(document=shifts_file, caption="📋 This is a list of your shifts")
+        else:
+            await message.answer("📄 You have no shifts!")
     else:
-        await message.answer("📄 You have no shifts!")
+        keyboard = await create_menu_keyboard()
+        await message.answer("🚫 You aren't authorized! For a login, use a special button or /auth command",
+                             reply_markup=keyboard)
+    db_connect.close()
 
 
 @router.message(UpdateShifts.waiting_for_shifts_add)
@@ -72,16 +79,18 @@ async def shifts_waiting(message: types.Message, state: FSMContext) -> None:
                                password=db_data["password"],
                                database="users_db")
     user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
-    if state_name == "UpdateShifts:waiting_for_shifts_add":
-        work_data.add_days(conn=db_connect, user_id=message.from_user.id, days=message.text)
-    elif state_name == "UpdateShifts:waiting_for_shifts_remove":
-        work_data.remove_days(conn=db_connect, user_id=message.from_user.id, days=message.text)
     if user_data["sp_uid"]:
         db_connect.connect(database="sp_users_db")
-        sp_user_data = db.sp_users_sub_info(conn=db_connect, sp_uid=user_data["sp_uid"])
+        if state_name == "UpdateShifts:waiting_for_shifts_add":
+            work_data.add_days(conn=db_connect, sp_uid=user_data["sp_uid"], days=message.text)
+        elif state_name == "UpdateShifts:waiting_for_shifts_remove":
+            work_data.remove_days(conn=db_connect, sp_uid=user_data["sp_uid"], days=message.text)
+        sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
         keyboard = await create_menu_keyboard(sp_user_data=sp_user_data)
+        await message.answer("✅ Shifts updated successful", reply_markup=keyboard)
     else:
         keyboard = await create_menu_keyboard()
-    db_connect.close()
-    await message.answer("✅ Shifts updated successful", reply_markup=keyboard)
+        await message.answer("🚫 You aren't authorized! For a login, use a special button or /auth command",
+                             reply_markup=keyboard)
     await state.clear()
+    db_connect.close()
