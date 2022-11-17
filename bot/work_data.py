@@ -1,4 +1,4 @@
-# Version 1.2.14 release
+# Version 1.3.0 release
 
 import copy
 import json
@@ -36,13 +36,14 @@ def take_date(element):
     return element
 
 
-def converter(conn: CMySQLConnection, user_id: int, today: str) -> list:
+def converter(conn: CMySQLConnection, sp_uid: int, today: str) -> list:
+    # conn > sp_users_db
     locations = copy.deepcopy(locations_sample)
 
     # READ SHIFTS
-    user_data = db.users_get_user(conn=conn, user_id=user_id)
-    if user_data["shifts"]:
-        work_data_extracted = json.loads(user_data["shifts"])
+    sp_user_data = db.sp_users_get_user(conn=conn, sp_uid=sp_uid)
+    if sp_user_data["shifts"]:
+        work_data_extracted = json.loads(sp_user_data["shifts"])
     else:
         work_data_extracted = []
     work_data = []
@@ -73,7 +74,7 @@ def converter(conn: CMySQLConnection, user_id: int, today: str) -> list:
 
     # WRITE RESULT
     work_data.sort(key=take_date)
-    db.users_configs_update_user(conn=conn, user_id=user_id, shifts=json.dumps(work_data))
+    db.sp_users_configs_update_user(conn=conn, sp_uid=sp_uid, shifts=json.dumps(work_data))
 
     # WORK WITH LOCATIONS LIST
     for index in range(len(locations)):
@@ -98,7 +99,7 @@ def converter(conn: CMySQLConnection, user_id: int, today: str) -> list:
     return locations
 
 
-def user_converter(conn: CMySQLConnection, user_id: int, work_data_extracted_string: str) -> list:
+def user_converter(conn: CMySQLConnection, sp_uid: int, work_data_extracted_string: str) -> list:
     locations = copy.deepcopy(locations_sample)
     work_data_extracted = work_data_extracted_string.split()
     for index in range(len(locations)):
@@ -123,12 +124,13 @@ def user_converter(conn: CMySQLConnection, user_id: int, work_data_extracted_str
     return locations
 
 
-def add_days(conn: CMySQLConnection, user_id: int, days: str) -> None:
+def add_days(conn: CMySQLConnection, sp_uid: int, days: str) -> None:
+    # conn > sp_users_db
     days = unidecode(days)
     days = days.lower().split("\n")
 
-    user_data = db.users_get_user(conn=conn, user_id=user_id)
-    work_data_extracted_string = user_data["shifts"]
+    sp_user_data = db.sp_users_get_user(conn=conn, sp_uid=sp_uid)
+    work_data_extracted_string = sp_user_data["shifts"]
     if work_data_extracted_string:
         work_data_extracted = json.loads(work_data_extracted_string)
     else:
@@ -157,15 +159,16 @@ def add_days(conn: CMySQLConnection, user_id: int, days: str) -> None:
     for work_day in work_data_extracted:
         work_data.append(work_day.strip())
 
-    db.users_configs_update_user(conn=conn, user_id=user_id, shifts=json.dumps(work_data))
+    db.sp_users_configs_update_user(conn=conn, sp_uid=sp_uid, shifts=json.dumps(work_data))
 
 
-def remove_days(conn: CMySQLConnection, user_id: int, days: str) -> None:
+def remove_days(conn: CMySQLConnection, sp_uid: int, days: str) -> None:
+    # conn > sp_users_db
     days = unidecode(days)
     days = days.lower().split("\n")
 
-    user_data = db.users_get_user(conn=conn, user_id=user_id)
-    work_data_extracted_string = user_data["shifts"]
+    sp_user_data = db.sp_users_get_user(conn=conn, sp_uid=sp_uid)
+    work_data_extracted_string = sp_user_data["shifts"]
     if work_data_extracted_string:
         work_data_extracted = json.loads(work_data_extracted_string)
     else:
@@ -200,12 +203,13 @@ def remove_days(conn: CMySQLConnection, user_id: int, days: str) -> None:
     for work_day in work_data_extracted:
         work_data.append(work_day.strip())
 
-    db.users_configs_update_user(conn=conn, user_id=user_id, shifts=json.dumps(work_data))
+    db.sp_users_configs_update_user(conn=conn, sp_uid=sp_uid, shifts=json.dumps(work_data))
 
 
-def get_bytes_file(conn: CMySQLConnection, user_id: int) -> Optional[bytes]:
-    user_data = db.users_get_user(conn=conn, user_id=user_id)
-    work_data_extracted_string = user_data["shifts"]
+def get_bytes_file(conn: CMySQLConnection, sp_uid: int) -> Optional[bytes]:
+    # conn > sp_users_db
+    sp_user_data = db.sp_users_get_user(conn=conn, sp_uid=sp_uid)
+    work_data_extracted_string = sp_user_data["shifts"]
     if work_data_extracted_string:
         work_data_extracted = json.loads(work_data_extracted_string)
         return bytes('\n'.join(work_data_extracted), encoding="utf8")
