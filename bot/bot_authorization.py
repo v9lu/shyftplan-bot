@@ -1,4 +1,4 @@
-# Version 2.2.2 release
+# Version 2.3.0 release
 
 import configparser
 import json
@@ -45,17 +45,17 @@ async def authorization(conn: CMySQLConnection, user_id: int, email: str, passwo
             json_items = json.loads(response.text)
             sp_eid = json_items["items"][0]["id"]
             sp_uid = json_items["items"][0]["user_id"]
-            db.users_configs_update_user(conn=conn, user_id=user_id,
-                                         sp_email=email, sp_token=token, sp_eid=sp_eid, sp_uid=sp_uid)
+            db.users_auth_update_user(conn=conn, user_id=user_id,
+                                      sp_email=email, sp_token=token, sp_eid=sp_eid, sp_uid=sp_uid)
             conn.connect(database="sp_users_db")
             db.sp_users_add_user(conn=conn, sp_uid=sp_uid)
-            conn.connect(database="users_db")
             return True
         else:
             return False
 
 
 @router.message(Command(commands=["auth"]))
+@router.message(Text(text="🔐️ Login Shyftplan"))
 async def auth(message: types.Message, state: FSMContext) -> None:
     await state.clear()
     db_data = config_data.get_db(configparser.ConfigParser())
@@ -73,11 +73,10 @@ async def auth(message: types.Message, state: FSMContext) -> None:
     else:
         if await authorization(conn=db_connect,
                                user_id=message.from_user.id, email=shyftplan_email, token=shyftplan_token):
-            db_connect.connect(database="sp_users_db")
-            sp_user_data = db.sp_users_sub_info(conn=db_connect, sp_uid=user_data["sp_uid"])
+            sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
             keyboard = await create_menu_keyboard(sp_user_data=sp_user_data)
             await message.answer("🔓 You are already authorized", reply_markup=keyboard)
-            keyboard = await create_settings_keyboard(user_data=user_data)
+            keyboard = await create_settings_keyboard(sp_user_data=sp_user_data)
             await message.answer("🚦Settings:", reply_markup=keyboard)
         else:
             await message.answer("🔐 Please enter your shyftplan email", reply_markup=ReplyKeyboardRemove())
@@ -95,7 +94,6 @@ async def settings(message: types.Message, state: FSMContext) -> None:
                                password=db_data["password"],
                                database="users_db")
     user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
-    db_connect.close()
     shyftplan_email = user_data["sp_email"]
     shyftplan_token = user_data["sp_token"]
     if not shyftplan_email or not shyftplan_token:
@@ -105,12 +103,14 @@ async def settings(message: types.Message, state: FSMContext) -> None:
     else:
         if await authorization(conn=db_connect,
                                user_id=message.from_user.id, email=shyftplan_email, token=shyftplan_token):
-            keyboard = await create_settings_keyboard(user_data=user_data)
+            sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
+            keyboard = await create_settings_keyboard(sp_user_data=sp_user_data)
             await message.answer("🚦Settings:", reply_markup=keyboard)
         else:
             await message.answer("🔐 Your data is outdated. Please authorize again, enter your shyftplan email",
                                  reply_markup=ReplyKeyboardRemove())
             await state.set_state(Authorization.waiting_for_email)
+    db_connect.close()
 
 
 @router.message(Authorization.waiting_for_email)
@@ -130,14 +130,13 @@ async def password_waiting(message: types.Message, state: FSMContext) -> None:
                                port=db_data["port"],
                                password=db_data["password"],
                                database="users_db")
+    user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
     if await authorization(conn=db_connect,
                            user_id=message.from_user.id, email=auth_data["email"], password=auth_data["password"]):
-        user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
-        db_connect.connect(database="sp_users_db")
-        sp_user_data = db.sp_users_sub_info(conn=db_connect, sp_uid=user_data["sp_uid"])
+        sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
         keyboard = await create_menu_keyboard(sp_user_data=sp_user_data)
         await message.answer("🔓 Good, you are authorized successfully!", reply_markup=keyboard)
-        keyboard = await create_settings_keyboard(user_data=user_data)
+        keyboard = await create_settings_keyboard(sp_user_data=sp_user_data)
         await message.answer("🚦Settings:", reply_markup=keyboard)
     else:
         keyboard = await create_menu_keyboard()
