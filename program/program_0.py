@@ -1,4 +1,4 @@
-# Version 1.13.0 release
+# Version 1.13.1 release
 
 import configparser
 import json
@@ -150,7 +150,7 @@ def newsfeeds_checker(conn: CMySQLConnection) -> bool:
         json_items = page_json["items"][0]
         is_old = db.newsfeeds_is_old_id(conn=conn, sp_uid=user_data["sp_uid"], newsfeed_id=json_items["id"])
         if not is_old:
-            if json_items["key"] == "request.swap_request" and user_data["prog_shift_offers"]:
+            if json_items["key"] == "request.swap_request" and sp_user_data["prog_shift_offers"]:
                 loc_pos_id: int = json_items["metadata"]["locations_position_ids"][0]
                 isotime_starts: str = json_items["objekt"]["shift"]["starts_at"]  # tz +02:00
                 isotime_ends: str = json_items["objekt"]["shift"]["ends_at"]  # tz +02:00
@@ -183,13 +183,11 @@ def newsfeeds_checker(conn: CMySQLConnection) -> bool:
                         join_or_accept_shift(conn=conn,
                                              shift_id=json_items["objekt_id"], shift_location=adc_response_loc,
                                              request_type="replace", datetimes=(datetime_starts, datetime_ends))
-            elif json_items["key"] == "request.swap_auto_accepted" and \
-                    json_items["user_id"] == user_data["shyftplan_user_id"]:
+            elif json_items["key"] == "request.swap_auto_accepted" and json_items["user_id"] == user_data["sp_uid"]:
                 notification(conn=conn, user_locations=locations,
                              loc_pos_id=json_items["objekt"]["locations_position_id"],
                              objekt=json_items["objekt"], shifted="True")
-            elif json_items["key"] == "request.shift_application" and \
-                    json_items["user_id"] == user_data["shyftplan_user_id"]:
+            elif json_items["key"] == "request.shift_application" and json_items["user_id"] == user_data["sp_uid"]:
                 notification(conn=conn, user_locations=locations,
                              loc_pos_id=json_items["metadata"]["managed_locations_position_ids"][0],
                              objekt=json_items["objekt"]["shift"], shifted="Unknown")
@@ -200,7 +198,7 @@ def newsfeeds_checker(conn: CMySQLConnection) -> bool:
                              text="\nError: Refused")
                 requests.post(f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id=1630691291&text="
                               f"❌ Unsuccessfully shifted (Refused): {response.text}")
-            elif json_items["key"] == "message" and user_data["prog_news"]:
+            elif json_items["key"] == "message" and sp_user_data["prog_news"]:
                 requests.post(f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_USER_ID}&text="
                               f"💬 Shyftplan Message:\n{json_items['message']}")
             db.newsfeeds_add_old_id(conn=conn, sp_uid=user_data["sp_uid"], newsfeed_id=json_items["id"])
@@ -258,29 +256,32 @@ while True:
                                port=db_data["port"],
                                password=db_data["password"])
     user_data = db.users_get_user(conn=db_connect, user_id=TG_USER_ID)
-    if user_data["prog_status"] and (user_data["prog_open_shifts"] or user_data["prog_shift_offers"] or
-                                     user_data["prog_news"]):
-        time.sleep(user_data["prog_sleep"])
-        try:
-            if user_data["prog_open_shifts"]:
-                if not open_shifts_checker(conn=db_connect):
+    sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
+    if sp_user_data["subscription"]:
+        if datetime.now() < sp_user_data["expire"]:
+            if sp_user_data["prog_status"] and (sp_user_data["prog_open_shifts"] or
+                                                sp_user_data["prog_shift_offers"] or
+                                                sp_user_data["prog_news"]):
+                time.sleep(sp_user_data["prog_sleep"])
+                try:
+                    if sp_user_data["prog_open_shifts"]:
+                        if not open_shifts_checker(conn=db_connect):
+                            continue
+                    if sp_user_data["prog_shift_offers"] or sp_user_data["prog_news"]:
+                        if not newsfeeds_checker(conn=db_connect):
+                            continue
+                except requests.exceptions.ChunkedEncodingError:
+                    print("[ERROR] Chunked Encoding Error")
+                    time.sleep(30)
                     continue
-            if user_data["prog_shift_offers"] or user_data["prog_news"]:
-                if not newsfeeds_checker(conn=db_connect):
+                except requests.exceptions.ConnectionError:
+                    print("[ERROR] Connection Error.")
+                    time.sleep(30)
                     continue
-        except requests.exceptions.ChunkedEncodingError:
-            print("[ERROR] Chunked Encoding Error")
-            time.sleep(30)
-            continue
-        except requests.exceptions.ConnectionError:
-            print("[ERROR] Connection Error.")
-            time.sleep(30)
-            continue
-        except json.decoder.JSONDecodeError:
-            print("[ERROR] JSON Decode Error.")
-            time.sleep(30)
-            continue
-        finally:
-            db_connect.close()
-    else:
-        db_connect.close()
+                except json.decoder.JSONDecodeError:
+                    print("[ERROR] JSON Decode Error.")
+                    time.sleep(30)
+                    continue
+                finally:
+                    db_connect.close()
+    db_connect.close()
