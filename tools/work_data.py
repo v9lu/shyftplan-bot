@@ -1,4 +1,4 @@
-# Version 1.3.0 release
+# Version 1.3.1 release
 
 import copy
 import json
@@ -7,7 +7,7 @@ from mysql.connector.connection_cext import CMySQLConnection
 from typing import Optional
 from unidecode import unidecode
 
-import db
+from tools import db
 
 locations_sample = [{"name": "szarych", "fullname": "Szarych Szeregów 11", "id": 163056, "dates": []},
                     {"name": "hawajska", "fullname": "Hawajska 11", "id": 165605, "dates": []},
