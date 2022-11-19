@@ -1,4 +1,4 @@
-# Version 1.12.0 release
+# Version 1.13.0 release
 
 import configparser
 import json
@@ -7,12 +7,13 @@ import requests
 import time
 from datetime import datetime, timedelta
 from mysql.connector.connection_cext import CMySQLConnection
+from pathlib import Path
 
-import config_data
-import db
-import work_data
+from tools import config_data
+from tools import db
+from tools import work_data
 
-TG_USER_ID = 0
+TG_USER_ID = int(Path(__file__).stem.split("_")[1])  # Path(__file__).stem = ../path/program_0.py > program_0
 TG_BOT_API_TOKEN = config_data.get_bot(configparser.ConfigParser())["bot_token"]
 SITE = "https://shyftplan.com"
 COMPANY_ID = 50272
@@ -29,12 +30,12 @@ def api_data_checker(user_locations: list, loc_pos_id: int, datetimes: tuple) ->
         return [False, None]
 
 
-def remove_day_request(conn: CMySQLConnection, location_name: str, datetimes: tuple):
+def remove_day_request(conn: CMySQLConnection, location_name: str, datetimes: tuple) -> None:
     day = datetimes[0].strftime("%d.%m.%Y")
     start_hour = datetimes[0].strftime("%H:%M")
     end_hour = datetimes[1].strftime("%H:%M")
     remove_day_string = f"{location_name}/{day}/{start_hour}-{end_hour}"
-    work_data.remove_days(conn=conn, user_id=TG_USER_ID, days=remove_day_string)
+    work_data.remove_days(conn=conn, sp_uid=user_data["sp_uid"], days=remove_day_string)
 
 
 def join_or_accept_shift(conn: CMySQLConnection, shift_id: int, shift_location: dict,
@@ -130,7 +131,7 @@ def notification(conn: CMySQLConnection, user_locations: list,
 
 
 def newsfeeds_checker(conn: CMySQLConnection) -> bool:
-    locations = work_data.converter(conn=conn, user_id=TG_USER_ID, today=datetime.now().strftime("%d.%m.%Y"))
+    locations = work_data.converter(conn=conn, sp_uid=user_data["sp_uid"], today=datetime.now().strftime("%d.%m.%Y"))
     response = requests.get(SITE + "/api/v1/newsfeeds",
                             params={"user_email": user_data["sp_email"],
                                     "authentication_token": user_data["sp_token"],
@@ -140,17 +141,15 @@ def newsfeeds_checker(conn: CMySQLConnection) -> bool:
     page_json = json.loads(response.text)
     if 'error' in page_json:
         if page_json["error"] == "401 Unauthorized":
-            db.users_configs_update_user(conn=conn, user_id=TG_USER_ID,
-                                         sp_email=None, sp_token=None)
+            db.users_auth_update_user(conn=conn, user_id=TG_USER_ID,
+                                      sp_email=None, sp_token=None)
             requests.post(f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_USER_ID}&text="
                           f"⛔ Bot was stopped because your data is outdated, use command /auth to authorize again.")
         return False
     else:
         json_items = page_json["items"][0]
-        conn.connect(database="newsfeeds_db")
         is_old = db.newsfeeds_is_old_id(conn=conn, sp_uid=user_data["sp_uid"], newsfeed_id=json_items["id"])
         if not is_old:
-            conn.connect(database="users_db")
             if json_items["key"] == "request.swap_request" and user_data["prog_shift_offers"]:
                 loc_pos_id: int = json_items["metadata"]["locations_position_ids"][0]
                 isotime_starts: str = json_items["objekt"]["shift"]["starts_at"]  # tz +02:00
@@ -204,13 +203,12 @@ def newsfeeds_checker(conn: CMySQLConnection) -> bool:
             elif json_items["key"] == "message" and user_data["prog_news"]:
                 requests.post(f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_USER_ID}&text="
                               f"💬 Shyftplan Message:\n{json_items['message']}")
-            conn.connect(database="newsfeeds_db")
             db.newsfeeds_add_old_id(conn=conn, sp_uid=user_data["sp_uid"], newsfeed_id=json_items["id"])
         return True
 
 
 def open_shifts_checker(conn: CMySQLConnection) -> bool:
-    locations = work_data.converter(conn=conn, user_id=TG_USER_ID, today=datetime.now().strftime("%d.%m.%Y"))
+    locations = work_data.converter(conn=conn, sp_uid=user_data["sp_uid"], today=datetime.now().strftime("%d.%m.%Y"))
     prepare_any_url = requests.models.PreparedRequest()
     shifts_url_params = {"user_email": user_data["sp_email"],
                          "authentication_token": user_data["sp_token"],
@@ -228,8 +226,8 @@ def open_shifts_checker(conn: CMySQLConnection) -> bool:
     page_json = json.loads(response.text)
     if 'error' in page_json:
         if page_json["error"] == "401 Unauthorized":
-            db.users_configs_update_user(conn=conn, user_id=TG_USER_ID,
-                                         sp_email=None, sp_token=None)
+            db.users_auth_update_user(conn=conn, user_id=TG_USER_ID,
+                                      sp_email=None, sp_token=None)
             requests.post(f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_USER_ID}&text="
                           f"⛔ Bot was stopped because your data is outdated, use command /auth to authorize again.")
         return False
@@ -255,21 +253,20 @@ def open_shifts_checker(conn: CMySQLConnection) -> bool:
 # MAIN SCRIPT #
 while True:
     db_data = config_data.get_db(configparser.ConfigParser())
-    users_db_connect = mysql.connect(user="root",
-                                     host=db_data["ip"],
-                                     port=db_data["port"],
-                                     password=db_data["password"],
-                                     database="users_db")
-    user_data = db.users_get_user(conn=users_db_connect, user_id=TG_USER_ID)
+    db_connect = mysql.connect(user="root",
+                               host=db_data["ip"],
+                               port=db_data["port"],
+                               password=db_data["password"])
+    user_data = db.users_get_user(conn=db_connect, user_id=TG_USER_ID)
     if user_data["prog_status"] and (user_data["prog_open_shifts"] or user_data["prog_shift_offers"] or
                                      user_data["prog_news"]):
         time.sleep(user_data["prog_sleep"])
         try:
             if user_data["prog_open_shifts"]:
-                if not open_shifts_checker(conn=users_db_connect):
+                if not open_shifts_checker(conn=db_connect):
                     continue
             if user_data["prog_shift_offers"] or user_data["prog_news"]:
-                if not newsfeeds_checker(conn=users_db_connect):
+                if not newsfeeds_checker(conn=db_connect):
                     continue
         except requests.exceptions.ChunkedEncodingError:
             print("[ERROR] Chunked Encoding Error")
@@ -284,6 +281,6 @@ while True:
             time.sleep(30)
             continue
         finally:
-            users_db_connect.close()
+            db_connect.close()
     else:
-        users_db_connect.close()
+        db_connect.close()
