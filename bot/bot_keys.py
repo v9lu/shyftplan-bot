@@ -1,4 +1,4 @@
-# Version 1.2.0 release
+# Version 1.2.1 release
 
 import configparser
 import mysql.connector as mysql
@@ -10,9 +10,9 @@ from aiogram.fsm.context import FSMContext
 from aiogram.filters.state import State, StatesGroup
 from datetime import datetime, timedelta
 
+from tools import config_data
+from tools import db
 import bot_keyboards
-import config_data
-import db
 
 router = Router()
 
@@ -35,11 +35,9 @@ async def create_key_btn(message: types.Message, state: FSMContext) -> None:
     db_connect = mysql.connect(user="root",
                                host=db_data["ip"],
                                port=db_data["port"],
-                               password=db_data["password"],
-                               database="users_db")
+                               password=db_data["password"])
     user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
     if user_data["sp_uid"]:
-        db_connect.connect(database="sp_users_db")
         sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
         if sp_user_data["subscription"] == "admin":
             keyboard = await bot_keyboards.create_menu_keyboard(sp_user_data=sp_user_data)
@@ -58,11 +56,9 @@ async def deactivate_key_btn(message: types.Message, state: FSMContext) -> None:
     db_connect = mysql.connect(user="root",
                                host=db_data["ip"],
                                port=db_data["port"],
-                               password=db_data["password"],
-                               database="users_db")
+                               password=db_data["password"])
     user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
     if user_data["sp_uid"]:
-        db_connect.connect(database="sp_users_db")
         sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
         if sp_user_data["subscription"] == "admin":
             keyboard = await bot_keyboards.create_menu_keyboard(sp_user_data=sp_user_data)
@@ -79,11 +75,9 @@ async def key_generator(message: types.Message, command: CommandObject, state: F
     db_connect = mysql.connect(user="root",
                                host=db_data["ip"],
                                port=db_data["port"],
-                               password=db_data["password"],
-                               database="users_db")
+                               password=db_data["password"])
     user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
     if user_data["sp_uid"]:
-        db_connect.connect(database="sp_users_db")
         sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
         if sp_user_data["subscription"] == "admin" and command.args:
             parameters = command.args.split()
@@ -94,7 +88,6 @@ async def key_generator(message: types.Message, command: CommandObject, state: F
                         key_days = int(parameters[1])
                         letters = string.ascii_lowercase + string.digits
                         key = ''.join(random.choice(letters) for i in range(16))
-                        db_connect.connect(database="keys_db")
                         db.keys_add_key(conn=db_connect, key=key, key_type=key_type, key_days=key_days)
                         if key_type == "premium":
                             await message.reply(f"🔑 <b>Key</b>: <code>{key}</code>\n"
@@ -124,17 +117,14 @@ async def key_deactivator(message: types.Message, command: CommandObject, state:
     db_connect = mysql.connect(user="root",
                                host=db_data["ip"],
                                port=db_data["port"],
-                               password=db_data["password"],
-                               database="users_db")
+                               password=db_data["password"])
     user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
     if user_data["sp_uid"]:
-        db_connect.connect(database="sp_users_db")
         sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
         if sp_user_data["subscription"] == "admin" and command.args:
             parameters = command.args.split()
             if len(parameters) == 1:
                 key = parameters[0]
-                db_connect.connect(database="keys_db")
                 db.keys_remove_key(conn=db_connect, key=key)
                 await message.reply("✅ Key was successfully removed!")
     db_connect.close()
@@ -146,13 +136,10 @@ async def key_waiting(message: types.Message, state: FSMContext, bot: Bot) -> No
     db_connect = mysql.connect(user="root",
                                host=db_data["ip"],
                                port=db_data["port"],
-                               password=db_data["password"],
-                               database="users_db")
+                               password=db_data["password"])
     user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
     if user_data["sp_uid"]:
-        db_connect.connect(database="keys_db")
         key_data = db.keys_activate_key(conn=db_connect, key=message.text)
-        db_connect.connect(database="sp_users_db")
         sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
         keyboard = await bot_keyboards.create_menu_keyboard(sp_user_data=sp_user_data)
         if key_data:
