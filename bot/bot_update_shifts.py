@@ -1,4 +1,4 @@
-# Version 2.2.0 release
+# Version 2.2.1 release
 
 import configparser
 import mysql.connector as mysql
@@ -8,10 +8,10 @@ from aiogram.filters.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram.types import BufferedInputFile
 
-import config_data
-import db
-import work_data
 from bot_keyboards import *
+from tools import config_data
+from tools import db
+from tools import work_data
 
 router = Router()
 
@@ -50,11 +50,9 @@ async def my_shifts(message: types.Message, state: FSMContext) -> None:
     db_connect = mysql.connect(user="root",
                                host=db_data["ip"],
                                port=db_data["port"],
-                               password=db_data["password"],
-                               database="users_db")
+                               password=db_data["password"])
     user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
     if user_data["sp_uid"]:
-        db_connect.connect("sp_users_db")
         bytes_file = work_data.get_bytes_file(conn=db_connect, sp_uid=user_data["sp_uid"])
         if bytes_file:
             shifts_file = BufferedInputFile(bytes_file, "shifts.txt")
@@ -76,11 +74,9 @@ async def shifts_waiting(message: types.Message, state: FSMContext) -> None:
     db_connect = mysql.connect(user="root",
                                host=db_data["ip"],
                                port=db_data["port"],
-                               password=db_data["password"],
-                               database="users_db")
+                               password=db_data["password"])
     user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
     if user_data["sp_uid"]:
-        db_connect.connect(database="sp_users_db")
         if state_name == "UpdateShifts:waiting_for_shifts_add":
             work_data.add_days(conn=db_connect, sp_uid=user_data["sp_uid"], days=message.text)
         elif state_name == "UpdateShifts:waiting_for_shifts_remove":
