@@ -1,4 +1,4 @@
-# Version 2.3.0 release
+# Version 2.3.1 release
 
 import configparser
 import json
@@ -11,9 +11,9 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import ReplyKeyboardRemove
 from mysql.connector import CMySQLConnection
 
-import config_data
-import db
 from bot_keyboards import *
+from tools import config_data
+from tools import db
 
 router = Router()
 
@@ -47,7 +47,6 @@ async def authorization(conn: CMySQLConnection, user_id: int, email: str, passwo
             sp_uid = json_items["items"][0]["user_id"]
             db.users_auth_update_user(conn=conn, user_id=user_id,
                                       sp_email=email, sp_token=token, sp_eid=sp_eid, sp_uid=sp_uid)
-            conn.connect(database="sp_users_db")
             db.sp_users_add_user(conn=conn, sp_uid=sp_uid)
             return True
         else:
@@ -62,8 +61,7 @@ async def auth(message: types.Message, state: FSMContext) -> None:
     db_connect = mysql.connect(user="root",
                                host=db_data["ip"],
                                port=db_data["port"],
-                               password=db_data["password"],
-                               database="users_db")
+                               password=db_data["password"])
     user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
     shyftplan_email = user_data["sp_email"]
     shyftplan_token = user_data["sp_token"]
@@ -91,8 +89,7 @@ async def settings(message: types.Message, state: FSMContext) -> None:
     db_connect = mysql.connect(user="root",
                                host=db_data["ip"],
                                port=db_data["port"],
-                               password=db_data["password"],
-                               database="users_db")
+                               password=db_data["password"])
     user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
     shyftplan_email = user_data["sp_email"]
     shyftplan_token = user_data["sp_token"]
@@ -128,8 +125,7 @@ async def password_waiting(message: types.Message, state: FSMContext) -> None:
     db_connect = mysql.connect(user="root",
                                host=db_data["ip"],
                                port=db_data["port"],
-                               password=db_data["password"],
-                               database="users_db")
+                               password=db_data["password"])
     user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
     if await authorization(conn=db_connect,
                            user_id=message.from_user.id, email=auth_data["email"], password=auth_data["password"]):
@@ -142,5 +138,5 @@ async def password_waiting(message: types.Message, state: FSMContext) -> None:
         keyboard = await create_menu_keyboard()
         await message.answer("🔒 Unfortunately email or password isn't correct. Try again using /auth command",
                              reply_markup=keyboard)
-    db_connect.close()
     await state.clear()
+    db_connect.close()
