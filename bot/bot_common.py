@@ -1,4 +1,4 @@
-# Version 2.2.1 release
+# Version 2.2.2 release
 
 import configparser
 import mysql.connector as mysql
@@ -114,7 +114,7 @@ async def change_config(call: types.CallbackQuery) -> None:
     sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
     sp_user_subscription = sp_user_data["subscription"]
     if call.data == "prog_status" or call.data == "prog_open_shifts" or call.data == "prog_shift_offers":
-        db.sp_users_configs_update_user(conn=db_connect, user_id=call.from_user.id,
+        db.sp_users_configs_update_user(conn=db_connect, sp_uid=user_data["sp_uid"],
                                         **{call.data: not bool(user_data[call.data])})
         updated_sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
         keyboard = await create_settings_keyboard(sp_user_data=updated_sp_user_data)
@@ -122,17 +122,17 @@ async def change_config(call: types.CallbackQuery) -> None:
         await call.answer()
     elif sp_user_subscription == 'premium' or sp_user_subscription == "friend" or sp_user_subscription == "admin":
         if call.data == "prog_news":
-            db.sp_users_configs_update_user(conn=db_connect, user_id=call.from_user.id,
+            db.sp_users_configs_update_user(conn=db_connect, sp_uid=user_data["sp_uid"],
                                             **{call.data: not bool(user_data[call.data])})
         else:
             if user_data["prog_sleep"] == 5.0:
-                db.sp_users_configs_update_user(conn=db_connect, user_id=call.from_user.id,
+                db.sp_users_configs_update_user(conn=db_connect, sp_uid=user_data["sp_uid"],
                                                 **{call.data: 1.0})
             elif user_data["prog_sleep"] == 1.0:
-                db.sp_users_configs_update_user(conn=db_connect, user_id=call.from_user.id,
+                db.sp_users_configs_update_user(conn=db_connect, sp_uid=user_data["sp_uid"],
                                                 **{call.data: 0.3})
             elif user_data["prog_sleep"] == 0.3:
-                db.sp_users_configs_update_user(conn=db_connect, user_id=call.from_user.id,
+                db.sp_users_configs_update_user(conn=db_connect, sp_uid=user_data["sp_uid"],
                                                 **{call.data: 5.0})
         updated_sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
         keyboard = await create_settings_keyboard(sp_user_data=updated_sp_user_data)
