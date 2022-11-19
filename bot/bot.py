@@ -1,4 +1,4 @@
-# Version 2.0.4 release
+# Version 2.0.5 release
 
 import asyncio
 import configparser
@@ -10,7 +10,7 @@ import bot_authorization
 import bot_update_shifts
 import bot_keys
 import bot_subscription
-import config_data
+from tools import config_data
 
 
 async def main():
