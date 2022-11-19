@@ -1,4 +1,4 @@
-# Version 2.3.0 release
+# Version 2.3.1 release
 
 import configparser
 import mysql.connector as mysql
@@ -10,8 +10,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import LabeledPrice
 
 import bot_keyboards
-import config_data
-import db
+from tools import config_data
+from tools import db
 
 STRIPE_TOKEN = config_data.get_bot(configparser.ConfigParser())["pay_token"]
 router = Router()
@@ -56,18 +56,15 @@ async def trial_7(message: types.Message, state: FSMContext):
     db_connect = mysql.connect(user="root",
                                host=db_data["ip"],
                                port=db_data["port"],
-                               password=db_data["password"],
-                               database="users_db")
+                               password=db_data["password"])
     user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
     if user_data["sp_uid"]:
-        db_connect.connect(database="sp_users_db")
         sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
         keyboard = await bot_keyboards.create_menu_keyboard(sp_user_data=sp_user_data)
         if not sp_user_data["used_trial_btn"]:
             db.sp_users_subscriptions_update_user(conn=db_connect, sp_uid=user_data["sp_uid"], used_trial_btn=True)
             letters = string.ascii_lowercase + string.digits
             key = ''.join(random.choice(letters) for i in range(16))
-            db_connect.connect(database="keys_db")
             db.keys_add_key(conn=db_connect, key=key, key_type="trial", key_days=7)
             await message.reply(f"🔑 <b>Key</b>: <code>{key}</code>\n"
                                 "     ├─ 🆓 <b>Type</b>: <code>Trial</code>\n"
@@ -94,8 +91,7 @@ async def successful_payment(message: types.Message, state: FSMContext):
     db_connect = mysql.connect(user="root",
                                host=db_data["ip"],
                                port=db_data["port"],
-                               password=db_data["password"],
-                               database="keys_db")
+                               password=db_data["password"])
     invoice_payload = message.successful_payment.invoice_payload.split(":")
     key_type = invoice_payload[0]
     key_days = int(invoice_payload[1])
@@ -103,10 +99,8 @@ async def successful_payment(message: types.Message, state: FSMContext):
         letters = string.ascii_lowercase + string.digits
         key = ''.join(random.choice(letters) for i in range(16))
         db.keys_add_key(conn=db_connect, key=key, key_type=key_type, key_days=key_days)
-        db_connect.connect("users_db")
         user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
         if user_data["sp_uid"]:
-            db_connect.connect("sp_users_db")
             sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
             keyboard = await bot_keyboards.create_menu_keyboard(sp_user_data=sp_user_data)
         else:
