@@ -1,4 +1,4 @@
-# Version 1.13.1 release
+# Version 1.13.2 release
 
 import configparser
 import json
@@ -63,6 +63,11 @@ def join_or_accept_shift(conn: CMySQLConnection, shift_id: int, shift_location: 
             json_response = json.loads(response.text)
             if len(json_response["items"]) > 0:
                 if json_response["items"][0]["locations_position_id"] == shift_location["id"]:
+                    hours_add = (datetime_ends - datetime_starts).seconds / 60 / 60
+                    earned_add = hours_add * 25
+                    db.users_statistics_update_user_add(conn=conn, user_id=TG_USER_ID,
+                                                        shifted_shifts_add=1, shifted_hours_add=hours_add,
+                                                        earned_add=earned_add)
                     requests.post(
                         f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_USER_ID}&text="
                         f"✅ Shift was accepted on: {shift_location['fullname']}\n"
