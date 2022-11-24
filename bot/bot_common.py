@@ -1,8 +1,9 @@
-# Version 2.2.3 release
+# Version 2.2.4 release
 
 import configparser
 import mysql.connector as mysql
 from aiogram import Router, types
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, Text
 from aiogram.fsm.context import FSMContext
 from datetime import datetime
@@ -118,7 +119,10 @@ async def change_config(call: types.CallbackQuery) -> None:
                                         **{call.data: not bool(sp_user_data[call.data])})
         updated_sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
         keyboard = await create_settings_keyboard(sp_user_data=updated_sp_user_data)
-        await call.message.edit_text("🚦Settings:", reply_markup=keyboard)
+        try:
+            await call.message.edit_text("🚦Settings:", reply_markup=keyboard)
+        except TelegramBadRequest:
+            pass
         await call.answer()
     elif sp_user_subscription == 'premium' or sp_user_subscription == "friend" or sp_user_subscription == "admin":
         if call.data == "prog_news":
@@ -136,7 +140,10 @@ async def change_config(call: types.CallbackQuery) -> None:
                                                 **{call.data: 5.0})
         updated_sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
         keyboard = await create_settings_keyboard(sp_user_data=updated_sp_user_data)
-        await call.message.edit_text("🚦Settings:", reply_markup=keyboard)
+        try:
+            await call.message.edit_text("🚦Settings:", reply_markup=keyboard)
+        except TelegramBadRequest:
+            pass
         await call.answer()
     else:
         await call.answer(text="💎 Only for premium subscription!")
