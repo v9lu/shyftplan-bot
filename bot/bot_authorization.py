@@ -1,4 +1,4 @@
-# Version 2.3.1 release
+# Version 2.3.2 release
 
 import configparser
 import json
@@ -126,9 +126,9 @@ async def password_waiting(message: types.Message, state: FSMContext) -> None:
                                host=db_data["ip"],
                                port=db_data["port"],
                                password=db_data["password"])
-    user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
     if await authorization(conn=db_connect,
                            user_id=message.from_user.id, email=auth_data["email"], password=auth_data["password"]):
+        user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
         sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
         keyboard = await create_menu_keyboard(sp_user_data=sp_user_data)
         await message.answer("🔓 Good, you are authorized successfully!", reply_markup=keyboard)
