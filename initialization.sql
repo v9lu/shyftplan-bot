@@ -34,6 +34,9 @@ CREATE TABLE IF NOT EXISTS sp_users_configs (
     prog_open_shifts BOOL NOT NULL DEFAULT 1,
     prog_shift_offers BOOL NOT NULL DEFAULT 1,
     prog_news BOOL NOT NULL DEFAULT 0,
+    bike_status BOOL NOT NULL DEFAULT 1,
+    scooter_status BOOL NOT NULL DEFAULT 0,
+    car_status BOOL NOT NULL DEFAULT 0,
     prog_sleep FLOAT(3, 2) NOT NULL DEFAULT 5,
     shifts MEDIUMTEXT DEFAULT NULL
 );
