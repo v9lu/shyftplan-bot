@@ -1,4 +1,4 @@
-# Version 1.13.3 release
+# Version 1.13.4 release
 
 import configparser
 import json
@@ -17,6 +17,11 @@ TG_USER_ID = int(Path(__file__).stem.split("_")[1])  # Path(__file__).stem = ../
 TG_BOT_API_TOKEN = config_data.get_bot(configparser.ConfigParser())["bot_token"]
 SITE = "https://shyftplan.com"
 COMPANY_ID = 50272
+db_data = config_data.get_db(configparser.ConfigParser())
+db_connect = mysql.connect(user="root",
+                           host=db_data["ip"],
+                           port=db_data["port"],
+                           password=db_data["password"])
 
 
 def api_data_checker(user_locations: list, loc_pos_id: int, datetimes: tuple) -> list:
@@ -255,11 +260,6 @@ def open_shifts_checker(conn: CMySQLConnection) -> bool:
 
 # MAIN SCRIPT #
 while True:
-    db_data = config_data.get_db(configparser.ConfigParser())
-    db_connect = mysql.connect(user="root",
-                               host=db_data["ip"],
-                               port=db_data["port"],
-                               password=db_data["password"])
     user_data = db.users_get_user(conn=db_connect, user_id=TG_USER_ID)
     sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
     if sp_user_data["subscription"]:
