@@ -1,4 +1,4 @@
-# Version 2.3.0 release
+# Version 2.3.1 release
 
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, KeyboardButton, ReplyKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
@@ -92,9 +92,9 @@ async def create_settings_keyboard(sp_user_data: dict) -> InlineKeyboardMarkup:
     open_shifts_status_btn = InlineKeyboardButton(text=prog_statuses_template[0], callback_data="prog_open_shifts")
     shift_offers_status_btn = InlineKeyboardButton(text=prog_statuses_template[1], callback_data="prog_shift_offers")
     news_status_btn = InlineKeyboardButton(text=prog_statuses_template[2], callback_data="prog_news")
-    bike_status_btn = InlineKeyboardButton(text=transport_statuses_template[0], callback_data="bike")
-    scooter_status_btn = InlineKeyboardButton(text=transport_statuses_template[1], callback_data="scooter")
-    car_status_btn = InlineKeyboardButton(text=transport_statuses_template[2], callback_data="car")
+    bike_status_btn = InlineKeyboardButton(text=transport_statuses_template[0], callback_data="bike_status")
+    scooter_status_btn = InlineKeyboardButton(text=transport_statuses_template[1], callback_data="scooter_status")
+    car_status_btn = InlineKeyboardButton(text=transport_statuses_template[2], callback_data="car_status")
     speed_btn = InlineKeyboardButton(text=speed_template, callback_data="prog_sleep")
     settings_keyboard.row(status_btn)
     settings_keyboard.row(open_shifts_status_btn, shift_offers_status_btn, news_status_btn)

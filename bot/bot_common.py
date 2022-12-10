@@ -1,4 +1,4 @@
-# Version 2.2.5 release
+# Version 2.2.6 release
 
 import configparser
 import mysql.connector as mysql
@@ -115,7 +115,7 @@ async def change_config(call: types.CallbackQuery) -> None:
     sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
     sp_user_subscription = sp_user_data["subscription"]
     if call.data == "prog_status" or call.data == "prog_open_shifts" or call.data == "prog_shift_offers" or \
-       call.data == "bike":
+       call.data == "bike_status":
         db.sp_users_configs_update_user(conn=db_connect, sp_uid=user_data["sp_uid"],
                                         **{call.data: not bool(sp_user_data[call.data])})
         updated_sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
@@ -126,7 +126,7 @@ async def change_config(call: types.CallbackQuery) -> None:
             pass
         await call.answer()
     elif sp_user_subscription == 'premium' or sp_user_subscription == "friend" or sp_user_subscription == "admin":
-        if call.data == "prog_news" or call.data == "scooter" or call.data == "car":
+        if call.data == "prog_news" or call.data == "scooter_status" or call.data == "car_status":
             db.sp_users_configs_update_user(conn=db_connect, sp_uid=user_data["sp_uid"],
                                             **{call.data: not bool(sp_user_data[call.data])})
         else:
