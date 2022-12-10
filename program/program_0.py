@@ -1,4 +1,4 @@
-# Version 1.13.2 release
+# Version 1.13.3 release
 
 import configparser
 import json
@@ -264,9 +264,13 @@ while True:
     sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
     if sp_user_data["subscription"]:
         if datetime.now() < sp_user_data["expire"]:
-            if sp_user_data["prog_status"] and (sp_user_data["prog_open_shifts"] or
-                                                sp_user_data["prog_shift_offers"] or
-                                                sp_user_data["prog_news"]):
+            if sp_user_data["prog_status"] and\
+                    (sp_user_data["prog_open_shifts"] or
+                     sp_user_data["prog_shift_offers"] or
+                     sp_user_data["prog_news"]) and \
+                    (sp_user_data["bike_status"] or
+                     sp_user_data["scooter_status"] or
+                     sp_user_data["car_status"]):
                 time.sleep(sp_user_data["prog_sleep"])
                 try:
                     if sp_user_data["prog_open_shifts"]:
@@ -287,6 +291,9 @@ while True:
                     print("[ERROR] JSON Decode Error.")
                     time.sleep(30)
                     continue
-                finally:
-                    db_connect.close()
-    db_connect.close()
+            else:
+                time.sleep(5)
+        else:
+            time.sleep(5)
+    else:
+        time.sleep(5)
