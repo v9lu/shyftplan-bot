@@ -1,4 +1,4 @@
-# Version 2.2.0 release
+# Version 2.3.0 release
 
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, KeyboardButton, ReplyKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
@@ -54,21 +54,29 @@ async def create_subscriptions_keyboard(sp_user_data: dict) -> ReplyKeyboardMark
 
 
 async def create_settings_keyboard(sp_user_data: dict) -> InlineKeyboardMarkup:
-    status_template: str = "Status: {emoji}"
-    other_statuses_templates: list = ["Open Shifts: {emoji}", "Shift Offers: {emoji}", "News: {emoji}"]
-    speed_template: str = "Check Speed: {emoji}"
+    status_template = "Status: {emoji}"
+    prog_statuses_template = ["Open Shifts: {emoji}", "Shift Offers: {emoji}", "News: {emoji}"]
+    transport_statuses_template = ["Bike: {emoji}", "Scooter: {emoji}", "Car: {emoji}"]
+    speed_template = "Check Speed: {emoji}"
 
     if sp_user_data["prog_status"]:
         status_template = status_template.format(emoji="✅")
     else:
         status_template = status_template.format(emoji="⛔️")
     
-    other_statuses = [sp_user_data["prog_open_shifts"], sp_user_data["prog_shift_offers"], sp_user_data["prog_news"]]
-    for index in range(len(other_statuses)):
-        if other_statuses[index]:
-            other_statuses_templates[index] = other_statuses_templates[index].format(emoji="✅")
+    prog_statuses = [sp_user_data["prog_open_shifts"], sp_user_data["prog_shift_offers"], sp_user_data["prog_news"]]
+    for index in range(len(prog_statuses)):
+        if prog_statuses[index]:
+            prog_statuses_template[index] = prog_statuses_template[index].format(emoji="✅")
         else:
-            other_statuses_templates[index] = other_statuses_templates[index].format(emoji="❌")
+            prog_statuses_template[index] = prog_statuses_template[index].format(emoji="❌")
+
+    transport_statuses = [sp_user_data["bike_status"], sp_user_data["scooter_status"], sp_user_data["car_status"]]
+    for index in range(len(transport_statuses)):
+        if transport_statuses[index]:
+            transport_statuses_template[index] = transport_statuses_template[index].format(emoji="✅")
+        else:
+            transport_statuses_template[index] = transport_statuses_template[index].format(emoji="❌")
 
     if sp_user_data["prog_sleep"] == 0.3:
         speed_template = speed_template.format(emoji="⚡ (0.3 sec)")
@@ -81,12 +89,16 @@ async def create_settings_keyboard(sp_user_data: dict) -> InlineKeyboardMarkup:
 
     settings_keyboard = InlineKeyboardBuilder()
     status_btn = InlineKeyboardButton(text=status_template, callback_data="prog_status")
-    open_shifts_status_btn = InlineKeyboardButton(text=other_statuses_templates[0], callback_data="prog_open_shifts")
-    shift_offers_status_btn = InlineKeyboardButton(text=other_statuses_templates[1], callback_data="prog_shift_offers")
-    news_status_btn = InlineKeyboardButton(text=other_statuses_templates[2], callback_data="prog_news")
+    open_shifts_status_btn = InlineKeyboardButton(text=prog_statuses_template[0], callback_data="prog_open_shifts")
+    shift_offers_status_btn = InlineKeyboardButton(text=prog_statuses_template[1], callback_data="prog_shift_offers")
+    news_status_btn = InlineKeyboardButton(text=prog_statuses_template[2], callback_data="prog_news")
+    bike_status_btn = InlineKeyboardButton(text=transport_statuses_template[0], callback_data="bike")
+    scooter_status_btn = InlineKeyboardButton(text=transport_statuses_template[1], callback_data="scooter")
+    car_status_btn = InlineKeyboardButton(text=transport_statuses_template[2], callback_data="car")
     speed_btn = InlineKeyboardButton(text=speed_template, callback_data="prog_sleep")
     settings_keyboard.row(status_btn)
     settings_keyboard.row(open_shifts_status_btn, shift_offers_status_btn, news_status_btn)
+    settings_keyboard.row(bike_status_btn, scooter_status_btn, car_status_btn)
     settings_keyboard.row(speed_btn)
     return settings_keyboard.as_markup()
 
