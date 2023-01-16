@@ -1,4 +1,4 @@
-# Version 2.3.2 release
+# Version 2.3.3 release
 
 import configparser
 import json
@@ -9,7 +9,7 @@ from aiogram.filters import Command, Text
 from aiogram.filters.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram.types import ReplyKeyboardRemove
-from mysql.connector import CMySQLConnection
+from mysql.connector import MySQLConnection
 
 from bot_keyboards import *
 from tools import config_data
@@ -23,7 +23,7 @@ class Authorization(StatesGroup):
     waiting_for_password = State()
 
 
-async def authorization(conn: CMySQLConnection, user_id: int, email: str, password: str = None, token: str = None) -> bool:
+async def authorization(conn: MySQLConnection, user_id: int, email: str, password: str = None, token: str = None) -> bool:
     if token:
         response = requests.get("https://shyftplan.com/api/v1/employments/my",
                                 params={"user_email": email,
