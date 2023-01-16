@@ -1,33 +1,94 @@
-# Version 1.3.1 release
+# Version 1.4.0 release
 
 import copy
 import json
 from datetime import datetime, timedelta
-from mysql.connector.connection_cext import CMySQLConnection
+from mysql.connector import MySQLConnection
 from typing import Optional
 from unidecode import unidecode
 
-from tools import db
+from program.tools import db
 
-locations_sample = [{"name": "szarych", "fullname": "Szarych Szeregów 11", "id": 163056, "dates": []},
-                    {"name": "hawajska", "fullname": "Hawajska 11", "id": 165605, "dates": []},
-                    {"name": "lirowa", "fullname": "Lirowa 26", "id": 165606, "dates": []},
-                    {"name": "tarnowiecka", "fullname": "Tarnowiecka 13", "id": 165607, "dates": []},
-                    {"name": "kamienna", "fullname": "Kamienna 1", "id": 165608, "dates": []},
-                    {"name": "miedzynarodowa", "fullname": "Międzynarodowa 42", "id": 166576, "dates": []},
-                    {"name": "sikorskiego", "fullname": "Sikorskiego 3A", "id": 166585, "dates": []},
-                    {"name": "solidarnosci", "fullname": "Solidarności 155", "id": 166586, "dates": []},
-                    {"name": "herbu", "fullname": "Herbu Janina 5", "id": 166587, "dates": []},
-                    {"name": "czluchowska", "fullname": "Człuchowska 35", "id": 168928, "dates": []},
-                    {"name": "rydygiera", "fullname": "Rydygiera 13", "id": 169661, "dates": []},
-                    {"name": "europlex", "fullname": "Europlex (Puławska 17)", "id": 170617, "dates": []},
-                    {"name": "grochowskiego", "fullname": "Grochowskiego 5", "id": 170856, "dates": []},
-                    {"name": "dolna", "fullname": "Dolna 41", "id": 171705, "dates": []},
-                    {"name": "sielecka", "fullname": "Sielecka 35", "id": 174110, "dates": []},
-                    {"name": "lekka", "fullname": "Lekka 3", "id": 174113, "dates": []},
-                    {"name": "elektryczna", "fullname": "Elektryczna 2", "id": 174114, "dates": []},
-                    {"name": "konstruktorska", "fullname": "Konstruktorska 13A", "id": 174153, "dates": []},
-                    {"name": "grenadierow", "fullname": "Grenadierów 11", "id": 177820, "dates": []}]
+locations_sample = [{"name": "szarych",
+                     "fullname": "Szarych Szeregów 11",
+                     "ids": {"bike": 163056, "car": 168652},
+                     "dates": []},
+                    {"name": "hawajska",
+                     "fullname": "Hawajska 11",
+                     "ids": {"bike": 165605, "car": 168653},
+                     "dates": []},
+                    {"name": "lirowa",
+                     "fullname": "Lirowa 26",
+                     "ids": {"bike": 165606, "car": 168655},
+                     "dates": []},
+                    {"name": "tarnowiecka",
+                     "fullname": "Tarnowiecka 13",
+                     "ids": {"bike": 165607, "car": 168656},
+                     "dates": []},
+                    {"name": "kamienna",
+                     "fullname": "Kamienna 1",
+                     "ids": {"bike": 165608, "car": 168654},
+                     "dates": []},
+                    {"name": "miedzynarodowa",
+                     "fullname": "Międzynarodowa 42",
+                     "ids": {"bike": 166576, "car": 168657},
+                     "dates": []},
+                    {"name": "sikorskiego",
+                     "fullname": "Sikorskiego 3A",
+                     "ids": {"bike": 166585, "car": 168658},
+                     "dates": []},
+                    {"name": "solidarnosci",
+                     "fullname": "Solidarności 155",
+                     "ids": {"bike": 166586, "car": 168659},
+                     "dates": []},
+                    {"name": "herbu",
+                     "fullname": "Herbu Janina 5",
+                     "ids": {"bike": 166587, "car": 168660},
+                     "dates": []},
+                    {"name": "czluchowska",
+                     "fullname": "Człuchowska 35",
+                     "ids": {"bike": 168928, "car": 168930},
+                     "dates": []},
+                    {"name": "rydygiera",
+                     "fullname": "Rydygiera 13",
+                     "ids": {"bike": 169661, "car": 169695},
+                     "dates": []},
+                    {"name": "europlex",
+                     "fullname": "Europlex (Puławska 17)",
+                     "ids": {"bike": 170617, "car": 170619},
+                     "dates": []},
+                    {"name": "grochowskiego",
+                     "fullname": "Grochowskiego 5 [Piaseczno]",
+                     "ids": {"bike": 170856, "car": 170861},
+                     "dates": []},
+                    {"name": "dolna",
+                     "fullname": "Dolna 41",
+                     "ids": {"bike": 171705, "car": 171706},
+                     "dates": []},
+                    {"name": "sielecka",
+                     "fullname": "Sielecka 35",
+                     "ids": {"bike": 174110, "car": 174124},
+                     "dates": []},
+                    {"name": "lekka",
+                     "fullname": "Lekka 3",
+                     "ids": {"bike": 174113, "car": 174125},
+                     "dates": []},
+                    {"name": "elektryczna",
+                     "fullname": "Elektryczna 2",
+                     "ids": {"bike": 174114, "car": 174126},
+                     "dates": []
+                     },
+                    {"name": "konstruktorska",
+                     "fullname": "Konstruktorska 13A",
+                     "ids": {"bike": 174153, "car": 174156},
+                     "dates": []
+                     },
+                    {"name": "grenadierow",
+                     "fullname": "Grenadierów 11",
+                     "ids": {"bike": 177820, "car": 177822},
+                     "dates": []
+                     }
+                    ]
 
 
 def take_date(element):
@@ -36,7 +97,7 @@ def take_date(element):
     return element
 
 
-def converter(conn: CMySQLConnection, sp_uid: int, today: str) -> list:
+def converter(conn: MySQLConnection, sp_uid: int, today: str) -> list:
     # conn > sp_users_db
     locations = copy.deepcopy(locations_sample)
 
@@ -57,7 +118,7 @@ def converter(conn: CMySQLConnection, sp_uid: int, today: str) -> list:
     # OTHER ACTIONS
     for work_day in work_data_extracted:
         list_from_work_day = work_day.split("/")
-        template = '/'.join(list_from_work_day[:2])   # '/'.join(["szarych", "09.09.2020"]) >>> "szarych/09.09.2020"
+        template = '/'.join(list_from_work_day[:2])  # '/'.join(["szarych", "09.09.2020"]) >>> "szarych/09.09.2020"
         if template not in work_data and not work_day.isspace() and len(list_from_work_day) > 2:
             work_data.append(template)
     for work_day in work_data_extracted:
@@ -99,7 +160,7 @@ def converter(conn: CMySQLConnection, sp_uid: int, today: str) -> list:
     return locations
 
 
-def user_converter(conn: CMySQLConnection, sp_uid: int, work_data_extracted_string: str) -> list:
+def user_converter(conn: MySQLConnection, sp_uid: int, work_data_extracted_string: str) -> list:
     locations = copy.deepcopy(locations_sample)
     work_data_extracted = work_data_extracted_string.split()
     for index in range(len(locations)):
@@ -124,7 +185,7 @@ def user_converter(conn: CMySQLConnection, sp_uid: int, work_data_extracted_stri
     return locations
 
 
-def add_days(conn: CMySQLConnection, sp_uid: int, days: str) -> None:
+def add_days(conn: MySQLConnection, sp_uid: int, days: str) -> None:
     # conn > sp_users_db
     days = unidecode(days)
     days = days.lower().split("\n")
@@ -162,7 +223,7 @@ def add_days(conn: CMySQLConnection, sp_uid: int, days: str) -> None:
     db.sp_users_configs_update_user(conn=conn, sp_uid=sp_uid, shifts=json.dumps(work_data))
 
 
-def remove_days(conn: CMySQLConnection, sp_uid: int, days: str) -> None:
+def remove_days(conn: MySQLConnection, sp_uid: int, days: str) -> None:
     # conn > sp_users_db
     days = unidecode(days)
     days = days.lower().split("\n")
@@ -206,7 +267,7 @@ def remove_days(conn: CMySQLConnection, sp_uid: int, days: str) -> None:
     db.sp_users_configs_update_user(conn=conn, sp_uid=sp_uid, shifts=json.dumps(work_data))
 
 
-def get_bytes_file(conn: CMySQLConnection, sp_uid: int) -> Optional[bytes]:
+def get_bytes_file(conn: MySQLConnection, sp_uid: int) -> Optional[bytes]:
     # conn > sp_users_db
     sp_user_data = db.sp_users_get_user(conn=conn, sp_uid=sp_uid)
     work_data_extracted_string = sp_user_data["shifts"]
