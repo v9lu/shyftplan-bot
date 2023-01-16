@@ -1,10 +1,10 @@
-# Version 2.3.1 release
+# Version 2.3.2 release
 
-from mysql.connector.connection_cext import CMySQLConnection
+from mysql.connector import MySQLConnection
 
 
 # KEYS_DB
-def keys_activate_key(conn: CMySQLConnection, key: str):
+def keys_activate_key(conn: MySQLConnection, key: str):
     if conn.database != "keys_db":
         conn.connect(database="keys_db")
     cursor = conn.cursor(dictionary=True)
@@ -20,7 +20,7 @@ def keys_activate_key(conn: CMySQLConnection, key: str):
         return False
 
 
-def keys_add_key(conn: CMySQLConnection, key: str, key_type: str, key_days: int):
+def keys_add_key(conn: MySQLConnection, key: str, key_type: str, key_days: int):
     if conn.database != "keys_db":
         conn.connect(database="keys_db")
     cursor = conn.cursor()
@@ -30,7 +30,7 @@ def keys_add_key(conn: CMySQLConnection, key: str, key_type: str, key_days: int)
     cursor.close()
 
 
-def keys_remove_key(conn: CMySQLConnection, key: str):
+def keys_remove_key(conn: MySQLConnection, key: str):
     if conn.database != "keys_db":
         conn.connect(database="keys_db")
     cursor = conn.cursor()
@@ -40,7 +40,7 @@ def keys_remove_key(conn: CMySQLConnection, key: str):
 
 
 # NEWSFEEDS_DB
-def newsfeeds_is_old_id(conn: CMySQLConnection, sp_uid: int, newsfeed_id: int) -> bool:
+def newsfeeds_is_old_id(conn: MySQLConnection, sp_uid: int, newsfeed_id: int) -> bool:
     if conn.database != "newsfeeds_db":
         conn.connect(database="newsfeeds_db")
     cursor = conn.cursor()
@@ -50,7 +50,7 @@ def newsfeeds_is_old_id(conn: CMySQLConnection, sp_uid: int, newsfeed_id: int) -
     return bool(id_exists)
 
 
-def newsfeeds_add_old_id(conn: CMySQLConnection, sp_uid: int, newsfeed_id: int):
+def newsfeeds_add_old_id(conn: MySQLConnection, sp_uid: int, newsfeed_id: int):
     if conn.database != "newsfeeds_db":
         conn.connect(database="newsfeeds_db")
     cursor = conn.cursor()
@@ -60,7 +60,7 @@ def newsfeeds_add_old_id(conn: CMySQLConnection, sp_uid: int, newsfeed_id: int):
 
 
 # SP_USERS_DB
-def sp_users_add_user(conn: CMySQLConnection, sp_uid: int) -> None:
+def sp_users_add_user(conn: MySQLConnection, sp_uid: int) -> None:
     if conn.database != "sp_users_db":
         conn.connect(database="sp_users_db")
     cursor = conn.cursor()
@@ -70,7 +70,7 @@ def sp_users_add_user(conn: CMySQLConnection, sp_uid: int) -> None:
     cursor.close()
 
 
-def sp_users_get_user(conn: CMySQLConnection, sp_uid: int) -> dict:
+def sp_users_get_user(conn: MySQLConnection, sp_uid: int) -> dict:
     if conn.database != "sp_users_db":
         conn.connect(database="sp_users_db")
     cursor = conn.cursor(dictionary=True)
@@ -81,7 +81,7 @@ def sp_users_get_user(conn: CMySQLConnection, sp_uid: int) -> dict:
     return user_data
 
 
-def sp_users_configs_update_user(conn: CMySQLConnection, sp_uid: int, **kwargs) -> None:
+def sp_users_configs_update_user(conn: MySQLConnection, sp_uid: int, **kwargs) -> None:
     if conn.database != "sp_users_db":
         conn.connect(database="sp_users_db")
     cursor = conn.cursor()
@@ -93,7 +93,7 @@ def sp_users_configs_update_user(conn: CMySQLConnection, sp_uid: int, **kwargs) 
     cursor.close()
 
 
-def sp_users_subscriptions_update_user(conn: CMySQLConnection, sp_uid: int, **kwargs) -> None:
+def sp_users_subscriptions_update_user(conn: MySQLConnection, sp_uid: int, **kwargs) -> None:
     if conn.database != "sp_users_db":
         conn.connect(database="sp_users_db")
     cursor = conn.cursor()
@@ -106,7 +106,7 @@ def sp_users_subscriptions_update_user(conn: CMySQLConnection, sp_uid: int, **kw
 
 
 # USERS_DB
-def users_add_user(conn: CMySQLConnection, user_id: int) -> None:
+def users_add_user(conn: MySQLConnection, user_id: int) -> None:
     if conn.database != "users_db":
         conn.connect(database="users_db")
     cursor = conn.cursor()
@@ -116,7 +116,7 @@ def users_add_user(conn: CMySQLConnection, user_id: int) -> None:
     cursor.close()
 
 
-def users_get_user(conn: CMySQLConnection, user_id: int) -> dict:
+def users_get_user(conn: MySQLConnection, user_id: int) -> dict:
     if conn.database != "users_db":
         conn.connect(database="users_db")
     cursor = conn.cursor(dictionary=True)
@@ -127,7 +127,7 @@ def users_get_user(conn: CMySQLConnection, user_id: int) -> dict:
     return user_data
 
 
-def users_auth_update_user(conn: CMySQLConnection, user_id: int, **kwargs) -> None:
+def users_auth_update_user(conn: MySQLConnection, user_id: int, **kwargs) -> None:
     if conn.database != "users_db":
         conn.connect(database="users_db")
     cursor = conn.cursor()
@@ -139,7 +139,7 @@ def users_auth_update_user(conn: CMySQLConnection, user_id: int, **kwargs) -> No
     cursor.close()
 
 
-def users_statistics_update_user_add(conn: CMySQLConnection, user_id: int,
+def users_statistics_update_user_add(conn: MySQLConnection, user_id: int,
                                      shifted_shifts_add: int, shifted_hours_add: float, earned_add: float) -> None:
     if conn.database != "users_db":
         conn.connect(database="users_db")
