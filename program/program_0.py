@@ -1,4 +1,4 @@
-# Version 1.13.4 release
+# Version 1.14.0 release
 
 import configparser
 import json
@@ -6,8 +6,9 @@ import mysql.connector as mysql
 import requests
 import time
 from datetime import datetime, timedelta
-from mysql.connector.connection_cext import CMySQLConnection
+from mysql.connector import MySQLConnection
 from pathlib import Path
+from typing import Optional
 
 from tools import config_data
 from tools import db
@@ -24,9 +25,11 @@ db_connect = mysql.connect(user="root",
                            password=db_data["password"])
 
 
-def api_data_checker(user_locations: list, loc_pos_id: int, datetimes: tuple) -> list:
+def api_data_checker(comment: Optional[str], user_locations: list, loc_pos_id: int, datetimes: tuple) -> list:
     for location in user_locations:
-        if location["id"] == loc_pos_id:
+        if (location["ids"]["car"] == loc_pos_id and sp_user_data["car_status"]) or \
+           (location["ids"]["bike"] == loc_pos_id and sp_user_data["scooter_status"] and "skuterze" in comment) or \
+           (location["ids"]["bike"] == loc_pos_id and sp_user_data["bike_status"] and "skuterze" not in comment):
             if datetimes in location["dates"]:
                 return [True, location]
             else:
@@ -35,7 +38,7 @@ def api_data_checker(user_locations: list, loc_pos_id: int, datetimes: tuple) ->
         return [False, None]
 
 
-def remove_day_request(conn: CMySQLConnection, location_name: str, datetimes: tuple) -> None:
+def remove_day_request(conn: MySQLConnection, location_name: str, datetimes: tuple) -> None:
     day = datetimes[0].strftime("%d.%m.%Y")
     start_hour = datetimes[0].strftime("%H:%M")
     end_hour = datetimes[1].strftime("%H:%M")
@@ -43,7 +46,7 @@ def remove_day_request(conn: CMySQLConnection, location_name: str, datetimes: tu
     work_data.remove_days(conn=conn, sp_uid=user_data["sp_uid"], days=remove_day_string)
 
 
-def join_or_accept_shift(conn: CMySQLConnection, shift_id: int, shift_location: dict,
+def join_or_accept_shift(conn: MySQLConnection, shift_id: int, shift_location: dict,
                          request_type: str, datetimes: tuple) -> None:
     datetime_starts: datetime = datetimes[0].replace(tzinfo=None)
     datetime_ends: datetime = datetimes[1].replace(tzinfo=None)
@@ -67,7 +70,7 @@ def join_or_accept_shift(conn: CMySQLConnection, shift_id: int, shift_location: 
                                             "employment_id": user_data["sp_eid"]})
             json_response = json.loads(response.text)
             if len(json_response["items"]) > 0:
-                if json_response["items"][0]["locations_position_id"] == shift_location["id"]:
+                if json_response["items"][0]["locations_position_id"] in shift_location["ids"].values():
                     hours_add = (datetime_ends - datetime_starts).seconds / 60 / 60
                     earned_add = hours_add * 25
                     db.users_statistics_update_user_add(conn=conn, user_id=TG_USER_ID,
@@ -103,7 +106,7 @@ def join_or_accept_shift(conn: CMySQLConnection, shift_id: int, shift_location: 
                               "ignore_conflicts": "false"})
 
 
-def notification(conn: CMySQLConnection, user_locations: list,
+def notification(conn: MySQLConnection, user_locations: list,
                  loc_pos_id: int, objekt: dict, shifted: str,
                  text: str = '') -> None:
     isotime_starts = objekt["starts_at"]
@@ -112,7 +115,7 @@ def notification(conn: CMySQLConnection, user_locations: list,
     datetime_ends = datetime.fromisoformat(isotime_ends).replace(tzinfo=None)
     datetimes: tuple = (datetime_starts, datetime_ends)
     for location in user_locations:
-        if location["id"] == loc_pos_id and datetimes in location["dates"]:
+        if loc_pos_id in location["ids"].values() and datetimes in location["dates"]:
             location_fullname = location["fullname"]
             if shifted == "True":
                 remove_day_request(conn=conn, location_name=location["name"], datetimes=datetimes)
@@ -140,7 +143,7 @@ def notification(conn: CMySQLConnection, user_locations: list,
                     f"To: {datetime_ends}" + text)
 
 
-def newsfeeds_checker(conn: CMySQLConnection) -> bool:
+def newsfeeds_checker(conn: MySQLConnection) -> bool:
     locations = work_data.converter(conn=conn, sp_uid=user_data["sp_uid"], today=datetime.now().strftime("%d.%m.%Y"))
     response = requests.get(SITE + "/api/v1/newsfeeds",
                             params={"user_email": user_data["sp_email"],
@@ -162,11 +165,17 @@ def newsfeeds_checker(conn: CMySQLConnection) -> bool:
         if not is_old:
             if json_items["key"] == "request.swap_request" and sp_user_data["prog_shift_offers"]:
                 loc_pos_id: int = json_items["metadata"]["locations_position_ids"][0]
+                shift_id: int = json_items["objekt"]["shift"]["id"]
                 isotime_starts: str = json_items["objekt"]["shift"]["starts_at"]  # tz +02:00
                 isotime_ends: str = json_items["objekt"]["shift"]["ends_at"]  # tz +02:00
                 datetime_starts = datetime.fromisoformat(isotime_starts).replace(tzinfo=None)
                 datetime_ends = datetime.fromisoformat(isotime_ends).replace(tzinfo=None)
-                adc_response = api_data_checker(user_locations=locations,
+                response = requests.get(SITE + f"/api/v1/shifts/{shift_id}",
+                                        params={"user_email": user_data["sp_email"],
+                                                "authentication_token": user_data["sp_token"]})
+                comment = json.loads(response.text)["note"]
+                adc_response = api_data_checker(comment=comment,
+                                                user_locations=locations,
                                                 loc_pos_id=loc_pos_id,
                                                 datetimes=(datetime_starts, datetime_ends))
                 adc_response_code = adc_response[0]
@@ -215,7 +224,7 @@ def newsfeeds_checker(conn: CMySQLConnection) -> bool:
         return True
 
 
-def open_shifts_checker(conn: CMySQLConnection) -> bool:
+def open_shifts_checker(conn: MySQLConnection) -> bool:
     locations = work_data.converter(conn=conn, sp_uid=user_data["sp_uid"], today=datetime.now().strftime("%d.%m.%Y"))
     prepare_any_url = requests.models.PreparedRequest()
     shifts_url_params = {"user_email": user_data["sp_email"],
@@ -229,7 +238,10 @@ def open_shifts_checker(conn: CMySQLConnection) -> bool:
     prepared_url = prepare_any_url.url
     for location in locations:
         if len(location["dates"]) > 0:
-            prepared_url += f"&locations_position_ids[]={location['id']}"
+            if sp_user_data["bike_status"] or sp_user_data["scooter_status"]:
+                prepared_url += f"&locations_position_ids[]={location['ids']['bike']}"
+            if sp_user_data["car_status"]:
+                prepared_url += f"&locations_position_ids[]={location['ids']['car']}"
     response = requests.get(prepared_url)
     page_json = json.loads(response.text)
     if 'error' in page_json:
@@ -247,7 +259,8 @@ def open_shifts_checker(conn: CMySQLConnection) -> bool:
             isotime_ends = item["ends_at"]
             datetime_starts = datetime.fromisoformat(isotime_starts).replace(tzinfo=None)
             datetime_ends = datetime.fromisoformat(isotime_ends).replace(tzinfo=None)
-            adc_response = api_data_checker(user_locations=locations,
+            adc_response = api_data_checker(comment=item["note"],
+                                            user_locations=locations,
                                             loc_pos_id=json_pos_id,
                                             datetimes=(datetime_starts, datetime_ends))
             adc_response_code = adc_response[0]
