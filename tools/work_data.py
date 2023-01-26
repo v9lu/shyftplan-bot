@@ -1,4 +1,4 @@
-# Version 1.4.0 release
+# Version 1.4.1 release
 
 import copy
 import json
@@ -7,7 +7,7 @@ from mysql.connector import MySQLConnection
 from typing import Optional
 from unidecode import unidecode
 
-from program.tools import db
+from tools import db
 
 locations_sample = [{"name": "szarych",
                      "fullname": "Szarych Szeregów 11",
@@ -103,10 +103,7 @@ def converter(conn: MySQLConnection, sp_uid: int, today: str) -> list:
 
     # READ SHIFTS
     sp_user_data = db.sp_users_get_user(conn=conn, sp_uid=sp_uid)
-    if sp_user_data["shifts"]:
-        work_data_extracted = json.loads(sp_user_data["shifts"])
-    else:
-        work_data_extracted = []
+    work_data_extracted = json.loads(sp_user_data["shifts"]) if sp_user_data["shifts"] else []
     work_data = []
 
     # REMOVE OUTDATED DAYS
