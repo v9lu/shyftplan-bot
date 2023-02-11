@@ -1,7 +1,8 @@
-# Version 1.4.1 release
+# Version 1.5.0 release
 
 import copy
 import json
+import time
 from datetime import datetime, timedelta
 from mysql.connector import MySQLConnection
 from typing import Optional
@@ -11,81 +12,81 @@ from tools import db
 
 locations_sample = [{"name": "szarych",
                      "fullname": "Szarych Szeregów 11",
-                     "ids": {"bike": 163056, "car": 168652},
+                     "ids": {"bike": {163056, 170251}, "scooter": {178048}, "car": {168652}},
                      "dates": []},
                     {"name": "hawajska",
                      "fullname": "Hawajska 11",
-                     "ids": {"bike": 165605, "car": 168653},
+                     "ids": {"bike": {165605, 170252}, "scooter": {178049}, "car": {168653}},
                      "dates": []},
                     {"name": "lirowa",
                      "fullname": "Lirowa 26",
-                     "ids": {"bike": 165606, "car": 168655},
+                     "ids": {"bike": {165606, 170254}, "scooter": {178051}, "car": {168655}},
                      "dates": []},
                     {"name": "tarnowiecka",
                      "fullname": "Tarnowiecka 13",
-                     "ids": {"bike": 165607, "car": 168656},
+                     "ids": {"bike": {165607, 170255}, "scooter": {178052}, "car": {168656}},
                      "dates": []},
                     {"name": "kamienna",
                      "fullname": "Kamienna 1",
-                     "ids": {"bike": 165608, "car": 168654},
+                     "ids": {"bike": {165608, 170253}, "scooter": {178050}, "car": {168654}},
                      "dates": []},
                     {"name": "miedzynarodowa",
                      "fullname": "Międzynarodowa 42",
-                     "ids": {"bike": 166576, "car": 168657},
+                     "ids": {"bike": {166576, 170256}, "scooter": {178053}, "car": {168657}},
                      "dates": []},
                     {"name": "sikorskiego",
                      "fullname": "Sikorskiego 3A",
-                     "ids": {"bike": 166585, "car": 168658},
+                     "ids": {"bike": {166585, 170257}, "scooter": {178054}, "car": {168658}},
                      "dates": []},
                     {"name": "solidarnosci",
                      "fullname": "Solidarności 155",
-                     "ids": {"bike": 166586, "car": 168659},
+                     "ids": {"bike": {166586, 170258}, "scooter": {178057}, "car": {168659}},
                      "dates": []},
                     {"name": "herbu",
                      "fullname": "Herbu Janina 5",
-                     "ids": {"bike": 166587, "car": 168660},
+                     "ids": {"bike": {166587, 170259}, "scooter": {178058}, "car": {168660}},
                      "dates": []},
                     {"name": "czluchowska",
                      "fullname": "Człuchowska 35",
-                     "ids": {"bike": 168928, "car": 168930},
+                     "ids": {"bike": {168928, 170260}, "scooter": {178059}, "car": {168930}},
                      "dates": []},
                     {"name": "rydygiera",
                      "fullname": "Rydygiera 13",
-                     "ids": {"bike": 169661, "car": 169695},
+                     "ids": {"bike": {169661, 170261}, "scooter": {178060}, "car": {169695}},
                      "dates": []},
                     {"name": "europlex",
                      "fullname": "Europlex (Puławska 17)",
-                     "ids": {"bike": 170617, "car": 170619},
+                     "ids": {"bike": {170617, 170618}, "scooter": {178061}, "car": {170619}},
                      "dates": []},
                     {"name": "grochowskiego",
                      "fullname": "Grochowskiego 5 [Piaseczno]",
-                     "ids": {"bike": 170856, "car": 170861},
+                     "ids": {"bike": {170856, 170860}, "scooter": {178056}, "car": {170861}},
                      "dates": []},
                     {"name": "dolna",
                      "fullname": "Dolna 41",
-                     "ids": {"bike": 171705, "car": 171706},
+                     "ids": {"bike": {171705, 171707}, "scooter": {178063}, "car": {171706}},
                      "dates": []},
                     {"name": "sielecka",
                      "fullname": "Sielecka 35",
-                     "ids": {"bike": 174110, "car": 174124},
+                     "ids": {"bike": {174110, 174116}, "scooter": {178062}, "car": {174124}},
                      "dates": []},
                     {"name": "lekka",
                      "fullname": "Lekka 3",
-                     "ids": {"bike": 174113, "car": 174125},
+                     "ids": {"bike": {174113, 174117}, "scooter": {178064}, "car": {174125}},
                      "dates": []},
                     {"name": "elektryczna",
                      "fullname": "Elektryczna 2",
-                     "ids": {"bike": 174114, "car": 174126},
+                     "ids": {"bike": {174114, 174118}, "scooter": {178065}, "car": {174126}},
                      "dates": []
                      },
                     {"name": "konstruktorska",
                      "fullname": "Konstruktorska 13A",
-                     "ids": {"bike": 174153, "car": 174156},
+                     "ids": {"bike": {174153, 174154}, "scooter": {178055}, "car": {174156}},
                      "dates": []
                      },
                     {"name": "grenadierow",
                      "fullname": "Grenadierów 11",
-                     "ids": {"bike": 177820, "car": 177822},
+                     "ids": {"bike": {177820, 177821}, "scooter": {178066}, "car": {177822}},
                      "dates": []
                      }
                     ]
@@ -217,7 +218,16 @@ def add_days(conn: MySQLConnection, sp_uid: int, days: str) -> None:
     for work_day in work_data_extracted:
         work_data.append(work_day.strip())
 
-    db.sp_users_configs_update_user(conn=conn, sp_uid=sp_uid, shifts=json.dumps(work_data))
+    if sp_user_data["prog_status"]:
+        # pause program
+        db.sp_users_configs_update_user(conn=conn, sp_uid=sp_uid, prog_status=False)
+        time.sleep(5)
+        # update shifts
+        db.sp_users_configs_update_user(conn=conn, sp_uid=sp_uid, shifts=json.dumps(work_data))
+        # unpause program
+        db.sp_users_configs_update_user(conn=conn, sp_uid=sp_uid, prog_status=True)
+    else:
+        db.sp_users_configs_update_user(conn=conn, sp_uid=sp_uid, shifts=json.dumps(work_data))
 
 
 def remove_days(conn: MySQLConnection, sp_uid: int, days: str) -> None:
@@ -261,7 +271,16 @@ def remove_days(conn: MySQLConnection, sp_uid: int, days: str) -> None:
     for work_day in work_data_extracted:
         work_data.append(work_day.strip())
 
-    db.sp_users_configs_update_user(conn=conn, sp_uid=sp_uid, shifts=json.dumps(work_data))
+    if sp_user_data["prog_status"]:
+        # pause program
+        db.sp_users_configs_update_user(conn=conn, sp_uid=sp_uid, prog_status=False)
+        time.sleep(5)
+        # update shifts
+        db.sp_users_configs_update_user(conn=conn, sp_uid=sp_uid, shifts=json.dumps(work_data))
+        # unpause program
+        db.sp_users_configs_update_user(conn=conn, sp_uid=sp_uid, prog_status=True)
+    else:
+        db.sp_users_configs_update_user(conn=conn, sp_uid=sp_uid, shifts=json.dumps(work_data))
 
 
 def get_bytes_file(conn: MySQLConnection, sp_uid: int) -> Optional[bytes]:
