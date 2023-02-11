@@ -1,4 +1,4 @@
-# Version 2.0.5 release
+# Version 2.0.6 release
 
 import asyncio
 import configparser
@@ -9,6 +9,7 @@ import bot_common
 import bot_authorization
 import bot_update_shifts
 import bot_keys
+import bot_newsletter
 import bot_subscription
 from tools import config_data
 
@@ -22,6 +23,7 @@ async def main():
     dp.include_router(bot_authorization.router)
     dp.include_router(bot_update_shifts.router)
     dp.include_router(bot_keys.router)
+    dp.include_router(bot_newsletter.router)
     dp.include_router(bot_subscription.router)
 
     await bot.delete_webhook(drop_pending_updates=True)
