@@ -1,4 +1,4 @@
-# Version 1.14.0 release
+# Version 1.15.0 release
 
 import configparser
 import json
@@ -27,9 +27,10 @@ db_connect = mysql.connect(user="root",
 
 def api_data_checker(comment: Optional[str], user_locations: list, loc_pos_id: int, datetimes: tuple) -> list:
     for location in user_locations:
-        if (location["ids"]["car"] == loc_pos_id and sp_user_data["car_status"]) or \
-           (location["ids"]["bike"] == loc_pos_id and sp_user_data["scooter_status"] and "skuterze" in comment) or \
-           (location["ids"]["bike"] == loc_pos_id and sp_user_data["bike_status"] and "skuterze" not in comment):
+        if (loc_pos_id in location["ids"]["car"] and sp_user_data["car_status"]) or \
+           (loc_pos_id in location["ids"]["scooter"] and sp_user_data["scooter_status"]) or \
+           (loc_pos_id in location["ids"]["bike"] and sp_user_data["scooter_status"] and "skuterze" in comment) or \
+           (loc_pos_id in location["ids"]["bike"] and sp_user_data["bike_status"] and "skuterze" not in comment):
             if datetimes in location["dates"]:
                 return [True, location]
             else:
@@ -46,7 +47,7 @@ def remove_day_request(conn: MySQLConnection, location_name: str, datetimes: tup
     work_data.remove_days(conn=conn, sp_uid=user_data["sp_uid"], days=remove_day_string)
 
 
-def join_or_accept_shift(conn: MySQLConnection, shift_id: int, shift_location: dict,
+def join_or_accept_shift(conn: MySQLConnection, shift_id: int, user_location: dict,
                          request_type: str, datetimes: tuple) -> None:
     datetime_starts: datetime = datetimes[0].replace(tzinfo=None)
     datetime_ends: datetime = datetimes[1].replace(tzinfo=None)
@@ -58,7 +59,7 @@ def join_or_accept_shift(conn: MySQLConnection, shift_id: int, shift_location: d
                                          "shift_id": shift_id})
         json_response = json.loads(response.text)
         if "conflicts" in json_response:
-            remove_day_request(conn=conn, location_name=shift_location["name"], datetimes=datetimes)
+            remove_day_request(conn=conn, location_name=user_location["name"], datetimes=datetimes)
             response = requests.get(SITE + "/api/v1/evaluations",
                                     params={"user_email": user_data["sp_email"],
                                             "authentication_token": user_data["sp_token"],
@@ -69,8 +70,9 @@ def join_or_accept_shift(conn: MySQLConnection, shift_id: int, shift_location: d
                                             "state": "no_evaluation",
                                             "employment_id": user_data["sp_eid"]})
             json_response = json.loads(response.text)
+            loc_pos_id = json_response["items"][0]["locations_position_id"]
             if len(json_response["items"]) > 0:
-                if json_response["items"][0]["locations_position_id"] in shift_location["ids"].values():
+                if any(loc_pos_id in ids_set for ids_set in user_location["ids"].values()):
                     hours_add = (datetime_ends - datetime_starts).seconds / 60 / 60
                     earned_add = hours_add * 25
                     db.users_statistics_update_user_add(conn=conn, user_id=TG_USER_ID,
@@ -78,14 +80,14 @@ def join_or_accept_shift(conn: MySQLConnection, shift_id: int, shift_location: d
                                                         earned_add=earned_add)
                     requests.post(
                         f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_USER_ID}&text="
-                        f"✅ Shift was accepted on: {shift_location['fullname']}\n"
+                        f"✅ Shift was accepted on: {user_location['fullname']}\n"
                         f"From: {datetime_starts}\n"
                         f"To: {datetime_ends}")
                 else:
                     requests.post(
                         f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_USER_ID}&text="
                         f"📕 Shift was removed from your list:\n"
-                        f"Location: {shift_location['fullname']}\n"
+                        f"Location: {user_location['fullname']}\n"
                         f"From: {datetime_starts}\n"
                         f"To: {datetime_ends}\n"
                         f"Information: You already have a shift at the same time")
@@ -93,7 +95,7 @@ def join_or_accept_shift(conn: MySQLConnection, shift_id: int, shift_location: d
                 requests.post(
                     f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_USER_ID}&text="
                     f"📕 Shift was removed from your list:\n"
-                    f"Location: {shift_location['fullname']}\n"
+                    f"Location: {user_location['fullname']}\n"
                     f"From: {datetime_starts}\n"
                     f"To: {datetime_ends}\n"
                     f"Information: You already have a shift at the same time")
@@ -114,11 +116,12 @@ def notification(conn: MySQLConnection, user_locations: list,
     datetime_starts = datetime.fromisoformat(isotime_starts).replace(tzinfo=None)
     datetime_ends = datetime.fromisoformat(isotime_ends).replace(tzinfo=None)
     datetimes: tuple = (datetime_starts, datetime_ends)
-    for location in user_locations:
-        if loc_pos_id in location["ids"].values() and datetimes in location["dates"]:
-            location_fullname = location["fullname"]
+    for user_location in user_locations:
+        if any(loc_pos_id in ids_set for ids_set in user_location["ids"].values()) and \
+                datetimes in user_location["dates"]:
+            location_fullname = user_location["fullname"]
             if shifted == "True":
-                remove_day_request(conn=conn, location_name=location["name"], datetimes=datetimes)
+                remove_day_request(conn=conn, location_name=user_location["name"], datetimes=datetimes)
                 hours_add = (datetime_ends - datetime_starts).seconds / 60 / 60
                 earned_add = hours_add * 25
                 db.users_statistics_update_user_add(conn=conn, user_id=TG_USER_ID,
@@ -196,11 +199,11 @@ def newsfeeds_checker(conn: MySQLConnection) -> bool:
                         if evaluation_ends_at == isotime_starts or \
                                 datetime.now() + timedelta(hours=2) < datetime_starts:
                             join_or_accept_shift(conn=conn,
-                                                 shift_id=json_items["objekt_id"], shift_location=adc_response_loc,
+                                                 shift_id=json_items["objekt_id"], user_location=adc_response_loc,
                                                  request_type="replace", datetimes=(datetime_starts, datetime_ends))
                     elif datetime.now() + timedelta(hours=2) < datetime_starts:
                         join_or_accept_shift(conn=conn,
-                                             shift_id=json_items["objekt_id"], shift_location=adc_response_loc,
+                                             shift_id=json_items["objekt_id"], user_location=adc_response_loc,
                                              request_type="replace", datetimes=(datetime_starts, datetime_ends))
             elif json_items["key"] == "request.swap_auto_accepted" and json_items["user_id"] == user_data["sp_uid"]:
                 notification(conn=conn, user_locations=locations,
@@ -239,9 +242,14 @@ def open_shifts_checker(conn: MySQLConnection) -> bool:
     for location in locations:
         if len(location["dates"]) > 0:
             if sp_user_data["bike_status"] or sp_user_data["scooter_status"]:
-                prepared_url += f"&locations_position_ids[]={location['ids']['bike']}"
+                for bike_location_id in location['ids']['bike']:
+                    prepared_url += f"&locations_position_ids[]={bike_location_id}"
+            if sp_user_data["scooter_status"]:
+                for scooter_location_id in location['ids']['scooter']:
+                    prepared_url += f"&locations_position_ids[]={scooter_location_id}"
             if sp_user_data["car_status"]:
-                prepared_url += f"&locations_position_ids[]={location['ids']['car']}"
+                for car_location_id in location['ids']['car']:
+                    prepared_url += f"&locations_position_ids[]={car_location_id}"
     response = requests.get(prepared_url)
     page_json = json.loads(response.text)
     if 'error' in page_json:
@@ -266,7 +274,7 @@ def open_shifts_checker(conn: MySQLConnection) -> bool:
             adc_response_code = adc_response[0]
             adc_response_loc = adc_response[1]
             if adc_response_code:
-                join_or_accept_shift(conn=conn, shift_id=item["id"], shift_location=adc_response_loc,
+                join_or_accept_shift(conn=conn, shift_id=item["id"], user_location=adc_response_loc,
                                      request_type="join", datetimes=(datetime_starts, datetime_ends))
         return True
 
