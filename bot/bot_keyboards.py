@@ -1,4 +1,4 @@
-# Version 2.3.1 release
+# Version 2.3.2 release
 
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, KeyboardButton, ReplyKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
@@ -20,6 +20,7 @@ async def create_menu_keyboard(sp_user_data: Optional[dict] = None) -> ReplyKeyb
     buy_subscription_btn = KeyboardButton(text="💳️ Buy subscription")
     activate_key_btn = KeyboardButton(text="🔑 Activate key")
     create_key_btn = KeyboardButton(text="🔑 Create key")
+    newsletter_btn = KeyboardButton(text="✉️ Newsletter")
     deactivate_key_btn = KeyboardButton(text="🚫 Deactivate key")
     statistic_btn = KeyboardButton(text="📊 Statistic")
     if sp_user_data is None:
@@ -28,7 +29,7 @@ async def create_menu_keyboard(sp_user_data: Optional[dict] = None) -> ReplyKeyb
         menu_keyboard.row(update_shifts_btn)
         menu_keyboard.row(settings_btn)
         if sp_user_data["subscription"] == "admin":
-            menu_keyboard.row(create_key_btn, deactivate_key_btn)
+            menu_keyboard.row(create_key_btn, newsletter_btn, deactivate_key_btn)
         elif sp_user_data["subscription"] == "friend":
             menu_keyboard.row(activate_key_btn)
         else:
