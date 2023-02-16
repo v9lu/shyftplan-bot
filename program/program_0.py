@@ -1,4 +1,4 @@
-# Version 1.15.0 release
+# Version 1.15.1 release
 
 import configparser
 import json
@@ -23,6 +23,9 @@ db_connect = mysql.connect(user="root",
                            host=db_data["ip"],
                            port=db_data["port"],
                            password=db_data["password"])
+requests.post(f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_USER_ID}&text="
+              f"💫 <b>The auto-shifting has been started/restarted!</b>"
+              f"&parse_mode=HTML")
 
 
 def api_data_checker(comment: Optional[str], user_locations: list, loc_pos_id: int, datetimes: tuple) -> list:
