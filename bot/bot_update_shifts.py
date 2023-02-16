@@ -1,4 +1,4 @@
-# Version 2.2.1 release
+# Version 2.2.2 release
 
 import configparser
 import mysql.connector as mysql
@@ -25,7 +25,8 @@ class UpdateShifts(StatesGroup):
 async def add_shifts(message: types.Message, state: FSMContext) -> None:
     await state.clear()
     keyboard = await create_menu_button_keyboard()
-    await message.answer("📗 Now enter shifts to add. For example:\n\n"
+    await message.answer("📗 Now enter shifts to add. For example:\n"
+                         "<b>[first ds word]/[date (dd.mm.yyyy)]/[time]</b>\n\n"
                          "<i>lekka/15.12.2022/19:00-23:30/19:00-00:30</i>\n"
                          "<i>szarych/16.12.2022/07:00-11:00</i>",
                          reply_markup=keyboard, parse_mode="HTML")
@@ -36,7 +37,8 @@ async def add_shifts(message: types.Message, state: FSMContext) -> None:
 async def remove_shifts(message: types.Message, state: FSMContext) -> None:
     await state.clear()
     keyboard = await create_menu_button_keyboard()
-    await message.answer("📕 Now enter shifts to remove. For example:\n\n"
+    await message.answer("📕 Now enter shifts to remove. For example:\n"
+                         "<b>[first ds word]/[date (dd.mm.yyyy)]/[time]</b>\n\n"
                          "<i>lekka/15.12.2022/19:00-23:30/19:00-00:30</i>\n"
                          "<i>szarych/16.12.2022/07:00-11:00</i>",
                          reply_markup=keyboard, parse_mode="HTML")
