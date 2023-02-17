@@ -1,8 +1,7 @@
-# Version 1.5.1 release
+# Version 1.5.2 release
 
 import copy
 import json
-import time
 from datetime import datetime, timedelta
 from mysql.connector import MySQLConnection
 from typing import Optional
@@ -220,15 +219,7 @@ def add_days(conn: MySQLConnection, sp_uid: int, days: str) -> None:
     for work_day in work_data_extracted:
         work_data.append(work_day.strip())
 
-    if sp_user_data["prog_status"]:
-        # pause program
-        db.sp_users_configs_update_user(conn=conn, sp_uid=sp_uid, prog_status=False)
-        # update shifts
-        db.sp_users_configs_update_user(conn=conn, sp_uid=sp_uid, shifts=json.dumps(work_data))
-        # unpause program
-        db.sp_users_configs_update_user(conn=conn, sp_uid=sp_uid, prog_status=True)
-    else:
-        db.sp_users_configs_update_user(conn=conn, sp_uid=sp_uid, shifts=json.dumps(work_data))
+    db.sp_users_configs_update_user(conn=conn, sp_uid=sp_uid, shifts=json.dumps(work_data))
 
 
 def remove_days(conn: MySQLConnection, sp_uid: int, days: str) -> None:
@@ -272,15 +263,7 @@ def remove_days(conn: MySQLConnection, sp_uid: int, days: str) -> None:
     for work_day in work_data_extracted:
         work_data.append(work_day.strip())
 
-    if sp_user_data["prog_status"]:
-        # pause program
-        db.sp_users_configs_update_user(conn=conn, sp_uid=sp_uid, prog_status=False)
-        # update shifts
-        db.sp_users_configs_update_user(conn=conn, sp_uid=sp_uid, shifts=json.dumps(work_data))
-        # unpause program
-        db.sp_users_configs_update_user(conn=conn, sp_uid=sp_uid, prog_status=True)
-    else:
-        db.sp_users_configs_update_user(conn=conn, sp_uid=sp_uid, shifts=json.dumps(work_data))
+    db.sp_users_configs_update_user(conn=conn, sp_uid=sp_uid, shifts=json.dumps(work_data))
 
 
 def get_bytes_file(conn: MySQLConnection, sp_uid: int) -> Optional[bytes]:
