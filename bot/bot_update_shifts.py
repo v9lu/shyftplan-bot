@@ -1,5 +1,6 @@
-# Version 2.2.2 release
+# Version 2.2.3 release
 
+import asyncio
 import configparser
 import mysql.connector as mysql
 from aiogram import Router, types
@@ -79,12 +80,27 @@ async def shifts_waiting(message: types.Message, state: FSMContext) -> None:
                                password=db_data["password"])
     user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
     if user_data["sp_uid"]:
-        if state_name == "UpdateShifts:waiting_for_shifts_add":
-            work_data.add_days(conn=db_connect, sp_uid=user_data["sp_uid"], days=message.text)
-        elif state_name == "UpdateShifts:waiting_for_shifts_remove":
-            work_data.remove_days(conn=db_connect, sp_uid=user_data["sp_uid"], days=message.text)
         sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
-        keyboard = await create_menu_keyboard(sp_user_data=sp_user_data)
+        if sp_user_data["prog_status"]:
+            # pause program
+            db.sp_users_configs_update_user(conn=db_connect, sp_uid=user_data["sp_uid"], prog_status=False)
+            # update shifts
+            keyboard = await create_menu_button_keyboard()
+            await message.answer("🌀 Please wait, update in progress", reply_markup=keyboard)
+            await asyncio.sleep(sp_user_data["prog_sleep"] * 2)
+            if state_name == "UpdateShifts:waiting_for_shifts_add":
+                work_data.add_days(conn=db_connect, sp_uid=user_data["sp_uid"], days=message.text)
+            elif state_name == "UpdateShifts:waiting_for_shifts_remove":
+                work_data.remove_days(conn=db_connect, sp_uid=user_data["sp_uid"], days=message.text)
+            # unpause program
+            db.sp_users_configs_update_user(conn=db_connect, sp_uid=user_data["sp_uid"], prog_status=True)
+        else:
+            # update shifts
+            if state_name == "UpdateShifts:waiting_for_shifts_add":
+                work_data.add_days(conn=db_connect, sp_uid=user_data["sp_uid"], days=message.text)
+            elif state_name == "UpdateShifts:waiting_for_shifts_remove":
+                work_data.remove_days(conn=db_connect, sp_uid=user_data["sp_uid"], days=message.text)
+        keyboard = await create_update_shifts_keyboard()
         await message.answer("✅ Shifts updated successful", reply_markup=keyboard)
     else:
         keyboard = await create_menu_keyboard()
