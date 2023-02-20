@@ -1,4 +1,4 @@
-# Version 2.3.4 release
+# Version 2.3.5 release
 
 from mysql.connector import MySQLConnection
 
@@ -94,6 +94,15 @@ def users_get_user(conn: MySQLConnection, user_id: int) -> dict:
                        "WHERE users_auth.user_id=%s AND users_statistics.user_id=%s", (user_id, user_id))
         user_data = cursor.fetchone()
     return user_data
+
+
+def users_get_users_ids(conn: MySQLConnection) -> list:
+    if conn.database != "users_db":
+        conn.connect(database="users_db")
+    with conn.cursor() as cursor:
+        cursor.execute("SELECT user_id FROM users_auth")
+        user_ids = cursor.fetchall()
+    return [user_id[0] for user_id in user_ids]
 
 
 def users_auth_update_user(conn: MySQLConnection, user_id: int, **kwargs) -> None:
