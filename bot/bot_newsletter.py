@@ -1,4 +1,4 @@
-# Version 1.0.1 release
+# Version 1.0.2 release
 
 import configparser
 import mysql.connector as mysql
@@ -53,13 +53,11 @@ async def news_text_waiting(message: types.Message, state: FSMContext, bot: Bot)
                                host=db_data["ip"],
                                port=db_data["port"],
                                password=db_data["password"])
-    users_ids = db.users_get_users_ids(conn=db_connect)
-    await send_news(bot=bot, users_ids=users_ids, news_text=message.html_text)
-
     user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
     sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
     keyboard = await create_menu_keyboard(sp_user_data=sp_user_data)
     await message.answer("✅ Newsletter has been launched", reply_markup=keyboard)
-
+    users_ids = db.users_get_users_ids(conn=db_connect)
+    await send_news(bot=bot, users_ids=users_ids, news_text=message.html_text)
     await state.clear()
     db_connect.close()
