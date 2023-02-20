@@ -1,4 +1,4 @@
-# Version 1.5.2 release
+# Version 1.5.3 release
 
 import copy
 import json
@@ -137,38 +137,12 @@ def converter(conn: MySQLConnection, sp_uid: int, today: str) -> list:
     # WORK WITH LOCATIONS LIST
     for index in range(len(locations)):
         for work_day in work_data:
-            work_day = work_day.split("/")  # "name/date/15-19" > ["name", "date", "15:00-19:00"]
+            work_day = list(filter(None, work_day.split("/")))  # "name/date/15-19" > ["name", "date", "15:00-19:00"]
             work_day_location_name = work_day[0]
             if work_day_location_name == locations[index]["name"]:
                 work_day_calendar_day = work_day[1]
                 work_day_hours = work_day[2:]
                 for hours_couple in work_day_hours:  # ["name", "date", "15:00-19:00"] > ["15:00-19:00"]
-                    hours_couple = hours_couple.replace(".", ":")  # 15:00-19.00 > 15:00-19:00
-                    starts_ends_time = hours_couple.split("-")  # 15:00-19:00 > ["15:00", "19:00"]
-                    starts_time = starts_ends_time[0]
-                    ends_time = starts_ends_time[1]
-
-                    dt_starts = datetime.strptime(work_day_calendar_day + starts_time, '%d.%m.%Y%H:%M')
-                    dt_ends = datetime.strptime(work_day_calendar_day + ends_time, '%d.%m.%Y%H:%M')
-                    if ends_time == "00:00" or ends_time == "00:30":
-                        dt_ends += timedelta(days=1)
-
-                    locations[index]["dates"].append((dt_starts, dt_ends))
-
-    return locations
-
-
-def user_converter(conn: MySQLConnection, sp_uid: int, work_data_extracted_string: str) -> list:
-    locations = copy.deepcopy(locations_sample)
-    work_data_extracted = work_data_extracted_string.split()
-    for index in range(len(locations)):
-        for work_day in work_data_extracted:
-            work_day = work_day.split("/")  # "name/date/15-19" > ["name", "date", "15:00-19:00"]
-            work_day_location_name = work_day[0]
-            if work_day_location_name == locations[index]["name"]:
-                work_day_calendar_day = work_day[1]
-                work_day_hours = work_day[2:]
-                for hours_couple in work_day_hours:  # ["name", "date", "15-19"] > ["15:00-19:00"]
                     hours_couple = hours_couple.replace(".", ":")  # 15:00-19.00 > 15:00-19:00
                     starts_ends_time = hours_couple.split("-")  # 15:00-19:00 > ["15:00", "19:00"]
                     starts_time = starts_ends_time[0]
