@@ -283,7 +283,8 @@ def open_shifts_checker(conn: MySQLConnection) -> bool:
 while True:
     user_data = db.users_get_user(conn=db_connect, user_id=TG_USER_ID)
     sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
-    if sp_user_data["subscription"]:
+    sp_user_shifts_extracted = json.loads(sp_user_data["shifts"])
+    if sp_user_data["subscription"] and sp_user_shifts_extracted:
         if datetime.now() < sp_user_data["expire"]:
             if sp_user_data["prog_status"] and\
                     (sp_user_data["prog_open_shifts"] or
