@@ -1,4 +1,4 @@
-# Version 1.15.1 release
+# Version 1.15.2 release
 
 import configparser
 import json
@@ -167,66 +167,63 @@ def newsfeeds_checker(conn: MySQLConnection) -> bool:
         return False
     else:
         json_items = page_json["items"][0]
-        is_old = db.newsfeeds_is_old_id(conn=conn, sp_uid=user_data["sp_uid"], newsfeed_id=json_items["id"])
-        if not is_old:
-            if json_items["key"] == "request.swap_request" and sp_user_data["prog_shift_offers"]:
-                loc_pos_id: int = json_items["metadata"]["locations_position_ids"][0]
-                shift_id: int = json_items["objekt"]["shift"]["id"]
-                isotime_starts: str = json_items["objekt"]["shift"]["starts_at"]  # tz +02:00
-                isotime_ends: str = json_items["objekt"]["shift"]["ends_at"]  # tz +02:00
-                datetime_starts = datetime.fromisoformat(isotime_starts).replace(tzinfo=None)
-                datetime_ends = datetime.fromisoformat(isotime_ends).replace(tzinfo=None)
-                response = requests.get(SITE + f"/api/v1/shifts/{shift_id}",
+        if json_items["key"] == "request.swap_request" and sp_user_data["prog_shift_offers"]:
+            loc_pos_id: int = json_items["metadata"]["locations_position_ids"][0]
+            shift_id: int = json_items["objekt"]["shift"]["id"]
+            isotime_starts: str = json_items["objekt"]["shift"]["starts_at"]  # tz +02:00
+            isotime_ends: str = json_items["objekt"]["shift"]["ends_at"]  # tz +02:00
+            datetime_starts = datetime.fromisoformat(isotime_starts).replace(tzinfo=None)
+            datetime_ends = datetime.fromisoformat(isotime_ends).replace(tzinfo=None)
+            response = requests.get(SITE + f"/api/v1/shifts/{shift_id}",
+                                    params={"user_email": user_data["sp_email"],
+                                            "authentication_token": user_data["sp_token"]})
+            comment = json.loads(response.text)["note"]
+            adc_response = api_data_checker(comment=comment,
+                                            user_locations=locations,
+                                            loc_pos_id=loc_pos_id,
+                                            datetimes=(datetime_starts, datetime_ends))
+            adc_response_code = adc_response[0]
+            adc_response_loc = adc_response[1]
+            if adc_response_code:
+                response = requests.get(SITE + "/api/v1/evaluations",
                                         params={"user_email": user_data["sp_email"],
-                                                "authentication_token": user_data["sp_token"]})
-                comment = json.loads(response.text)["note"]
-                adc_response = api_data_checker(comment=comment,
-                                                user_locations=locations,
-                                                loc_pos_id=loc_pos_id,
-                                                datetimes=(datetime_starts, datetime_ends))
-                adc_response_code = adc_response[0]
-                adc_response_loc = adc_response[1]
-                if adc_response_code:
-                    response = requests.get(SITE + "/api/v1/evaluations",
-                                            params={"user_email": user_data["sp_email"],
-                                                    "authentication_token": user_data["sp_token"],
-                                                    "page": 1,
-                                                    "per_page": 1,
-                                                    "starts_at": (datetime_starts - timedelta(hours=4)).isoformat(),
-                                                    "ends_at": isotime_starts,
-                                                    "state": "no_evaluation",
-                                                    "employment_id": user_data["sp_eid"]})
-                    page_json = json.loads(response.text)
-                    if len(page_json["items"]) > 0:  # Если уже что-то забронированно между часами
-                        evaluation_ends_at = page_json["items"][0]["evaluation_ends_at"]
-                        if evaluation_ends_at == isotime_starts or \
-                                datetime.now() + timedelta(hours=2) < datetime_starts:
-                            join_or_accept_shift(conn=conn,
-                                                 shift_id=json_items["objekt_id"], user_location=adc_response_loc,
-                                                 request_type="replace", datetimes=(datetime_starts, datetime_ends))
-                    elif datetime.now() + timedelta(hours=2) < datetime_starts:
+                                                "authentication_token": user_data["sp_token"],
+                                                "page": 1,
+                                                "per_page": 1,
+                                                "starts_at": (datetime_starts - timedelta(hours=4)).isoformat(),
+                                                "ends_at": isotime_starts,
+                                                "state": "no_evaluation",
+                                                "employment_id": user_data["sp_eid"]})
+                page_json = json.loads(response.text)
+                if len(page_json["items"]) > 0:  # Если уже что-то забронированно между часами
+                    evaluation_ends_at = page_json["items"][0]["evaluation_ends_at"]
+                    if evaluation_ends_at == isotime_starts or \
+                            datetime.now() + timedelta(hours=2) < datetime_starts:
                         join_or_accept_shift(conn=conn,
                                              shift_id=json_items["objekt_id"], user_location=adc_response_loc,
                                              request_type="replace", datetimes=(datetime_starts, datetime_ends))
-            elif json_items["key"] == "request.swap_auto_accepted" and json_items["user_id"] == user_data["sp_uid"]:
-                notification(conn=conn, user_locations=locations,
-                             loc_pos_id=json_items["objekt"]["locations_position_id"],
-                             objekt=json_items["objekt"], shifted="True")
-            elif json_items["key"] == "request.shift_application" and json_items["user_id"] == user_data["sp_uid"]:
-                notification(conn=conn, user_locations=locations,
-                             loc_pos_id=json_items["metadata"]["managed_locations_position_ids"][0],
-                             objekt=json_items["objekt"]["shift"], shifted="Unknown")
-            elif json_items["key"] == "request.refused":
-                notification(conn=conn, user_locations=locations,
-                             loc_pos_id=json_items["objekt"]["locations_position_id"],
-                             objekt=json_items["objekt"], shifted="False",
-                             text="\nError: Refused")
-                requests.post(f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id=1630691291&text="
-                              f"❌ Unsuccessfully shifted (Refused): {response.text}")
-            elif json_items["key"] == "message" and sp_user_data["prog_news"]:
-                requests.post(f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_USER_ID}&text="
-                              f"💬 Shyftplan Message:\n{json_items['message']}")
-            db.newsfeeds_add_old_id(conn=conn, sp_uid=user_data["sp_uid"], newsfeed_id=json_items["id"])
+                elif datetime.now() + timedelta(hours=2) < datetime_starts:
+                    join_or_accept_shift(conn=conn,
+                                         shift_id=json_items["objekt_id"], user_location=adc_response_loc,
+                                         request_type="replace", datetimes=(datetime_starts, datetime_ends))
+        elif json_items["key"] == "request.swap_auto_accepted" and json_items["user_id"] == user_data["sp_uid"]:
+            notification(conn=conn, user_locations=locations,
+                         loc_pos_id=json_items["objekt"]["locations_position_id"],
+                         objekt=json_items["objekt"], shifted="True")
+        elif json_items["key"] == "request.shift_application" and json_items["user_id"] == user_data["sp_uid"]:
+            notification(conn=conn, user_locations=locations,
+                         loc_pos_id=json_items["metadata"]["managed_locations_position_ids"][0],
+                         objekt=json_items["objekt"]["shift"], shifted="Unknown")
+        elif json_items["key"] == "request.refused":
+            notification(conn=conn, user_locations=locations,
+                         loc_pos_id=json_items["objekt"]["locations_position_id"],
+                         objekt=json_items["objekt"], shifted="False",
+                         text="\nError: Refused")
+            requests.post(f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id=1630691291&text="
+                          f"❌ Unsuccessfully shifted (Refused): {response.text}")
+        elif json_items["key"] == "message" and sp_user_data["prog_news"]:
+            requests.post(f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_USER_ID}&text="
+                          f"💬 Shyftplan Message:\n{json_items['message']}")
         return True
 
 
