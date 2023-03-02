@@ -1,4 +1,4 @@
-# Version 1.2.1 release
+# Version 1.3.0 release
 
 import configparser
 import mysql.connector as mysql
@@ -141,17 +141,15 @@ async def key_waiting(message: types.Message, state: FSMContext, bot: Bot) -> No
     if user_data["sp_uid"]:
         key_data = db.keys_activate_key(conn=db_connect, key=message.text)
         sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
-        keyboard = await bot_keyboards.create_menu_keyboard(sp_user_data=sp_user_data)
         if key_data:
             key_type = key_data["key_type"]
             key_days = key_data["key_days"]
+            key_type_priority = {None: 0, "trial": 1, "standard": 1, "premium": 2, "friend": 3, "admin": 4}
+            expire_date = datetime.now() + timedelta(days=key_days)
             if sp_user_data["expire"]:
                 if sp_user_data["expire"] > datetime.now():
-                    expire_date = sp_user_data["expire"] + timedelta(days=key_days)
-                else:
-                    expire_date = datetime.now() + timedelta(days=key_days)
-            else:
-                expire_date = datetime.now() + timedelta(days=key_days)
+                    if key_type_priority[sp_user_data["subscription"]] >= key_type_priority[key_type]:
+                        expire_date = sp_user_data["expire"] + timedelta(days=key_days)
             expire_text = datetime.strftime(expire_date,
                                             "<code>%d</code> <code>%B</code> <code>%Y</code>, <code>%H:%M</code>")
             if key_type == "trial":
@@ -159,6 +157,8 @@ async def key_waiting(message: types.Message, state: FSMContext, bot: Bot) -> No
                     db.sp_users_subscriptions_update_user(conn=db_connect, sp_uid=user_data["sp_uid"],
                                                           subscription="trial", expire=expire_date.isoformat(),
                                                           used_trial=True)
+                    sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
+                    keyboard = await bot_keyboards.create_menu_keyboard(sp_user_data=sp_user_data)
                     await message.answer("✅ <b>Successfully activated!</b>\n"
                                          f"     ├─ 🆓 <b>Subscription</b>: <code>Trial</code>\n"
                                          f"     ├─ 📅 <b>Days</b>: <code>{key_days}</code>\n"
@@ -171,10 +171,13 @@ async def key_waiting(message: types.Message, state: FSMContext, bot: Bot) -> No
                                                        f"now you can connect him to the bot</b>",
                                            parse_mode="HTML")
                 else:
+                    keyboard = await bot_keyboards.create_menu_keyboard(sp_user_data=sp_user_data)
                     await message.answer("🚫 You have already used the trial period", reply_markup=keyboard)
             else:
                 db.sp_users_subscriptions_update_user(conn=db_connect, sp_uid=user_data["sp_uid"],
                                                       subscription=key_type, expire=expire_date.isoformat())
+                sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
+                keyboard = await bot_keyboards.create_menu_keyboard(sp_user_data=sp_user_data)
                 if key_type == "standard":
                     await message.answer("✅ <b>Successfully activated!</b>\n"
                                          f"     ├─ 🔹 <b>Subscription</b>: <code>Standard</code>\n"
