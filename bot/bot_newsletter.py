@@ -1,4 +1,4 @@
-# Version 1.0.2 release
+# Version 1.0.3 release
 
 import configparser
 import mysql.connector as mysql
@@ -8,7 +8,7 @@ from aiogram.filters import Text
 from aiogram.filters.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 
-from bot_keyboards import *
+from bot_keyboards import create_menu_keyboard, create_menu_button_keyboard
 from tools import config_data
 from tools import db
 
