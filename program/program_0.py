@@ -1,4 +1,4 @@
-# Version 1.15.1 release
+# Version 1.15.3 release
 
 import configparser
 import json
@@ -16,7 +16,7 @@ from tools import work_data
 
 TG_USER_ID = int(Path(__file__).stem.split("_")[1])  # Path(__file__).stem = ../path/program_0.py > program_0
 TG_BOT_API_TOKEN = config_data.get_bot(configparser.ConfigParser())["bot_token"]
-SITE = "https://shyftplan.com"
+BASE_URL = "https://shyftplan.com"
 COMPANY_ID = 50272
 db_data = config_data.get_db(configparser.ConfigParser())
 db_connect = mysql.connect(user="root",
@@ -55,7 +55,7 @@ def join_or_accept_shift(conn: MySQLConnection, shift_id: int, user_location: di
     datetime_starts: datetime = datetimes[0].replace(tzinfo=None)
     datetime_ends: datetime = datetimes[1].replace(tzinfo=None)
     if request_type == "join":
-        response = requests.post(SITE + "/api/v1/requests/join",
+        response = requests.post(f"{BASE_URL}/api/v1/requests/join",
                                  params={"user_email": user_data["sp_email"],
                                          "authentication_token": user_data["sp_token"],
                                          "company_id": COMPANY_ID,
@@ -63,7 +63,7 @@ def join_or_accept_shift(conn: MySQLConnection, shift_id: int, user_location: di
         json_response = json.loads(response.text)
         if "conflicts" in json_response:
             remove_day_request(conn=conn, location_name=user_location["name"], datetimes=datetimes)
-            response = requests.get(SITE + "/api/v1/evaluations",
+            response = requests.get(f"{BASE_URL}/api/v1/evaluations",
                                     params={"user_email": user_data["sp_email"],
                                             "authentication_token": user_data["sp_token"],
                                             "page": 1,
@@ -103,7 +103,7 @@ def join_or_accept_shift(conn: MySQLConnection, shift_id: int, user_location: di
                     f"To: {datetime_ends}\n"
                     f"Information: You already have a shift at the same time")
     elif request_type == "replace":
-        requests.post(SITE + "/api/v1/requests/replace/accept",
+        requests.post(f"{BASE_URL}/api/v1/requests/replace/accept",
                       params={"user_email": user_data["sp_email"],
                               "authentication_token": user_data["sp_token"],
                               "company_id": COMPANY_ID,
@@ -150,8 +150,8 @@ def notification(conn: MySQLConnection, user_locations: list,
 
 
 def newsfeeds_checker(conn: MySQLConnection) -> bool:
-    locations = work_data.converter(conn=conn, sp_uid=user_data["sp_uid"], today=datetime.now().strftime("%d.%m.%Y"))
-    response = requests.get(SITE + "/api/v1/newsfeeds",
+    locations = work_data.converter(conn=conn, sp_uid=user_data["sp_uid"], today=datetime.now())
+    response = requests.get(f"{BASE_URL}/api/v1/newsfeeds",
                             params={"user_email": user_data["sp_email"],
                                     "authentication_token": user_data["sp_token"],
                                     "company_id": COMPANY_ID,
@@ -171,12 +171,19 @@ def newsfeeds_checker(conn: MySQLConnection) -> bool:
         if not is_old:
             if json_items["key"] == "request.swap_request" and sp_user_data["prog_shift_offers"]:
                 loc_pos_id: int = json_items["metadata"]["locations_position_ids"][0]
-                shift_id: int = json_items["objekt"]["shift"]["id"]
+                try:
+                    shift_id: int = json_items["objekt"]["shift"]["id"]
+                except KeyError:
+                    print('\n\n-------\n', json_items, '\n-------\n\n')
+                    requests.post(
+                        f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id=1630691291&text="
+                        f"BAG BAG BAG!!!!!!!!!")
+                    exit(0)
                 isotime_starts: str = json_items["objekt"]["shift"]["starts_at"]  # tz +02:00
                 isotime_ends: str = json_items["objekt"]["shift"]["ends_at"]  # tz +02:00
                 datetime_starts = datetime.fromisoformat(isotime_starts).replace(tzinfo=None)
                 datetime_ends = datetime.fromisoformat(isotime_ends).replace(tzinfo=None)
-                response = requests.get(SITE + f"/api/v1/shifts/{shift_id}",
+                response = requests.get(f"{BASE_URL}/api/v1/shifts/{shift_id}",
                                         params={"user_email": user_data["sp_email"],
                                                 "authentication_token": user_data["sp_token"]})
                 comment = json.loads(response.text)["note"]
@@ -187,7 +194,7 @@ def newsfeeds_checker(conn: MySQLConnection) -> bool:
                 adc_response_code = adc_response[0]
                 adc_response_loc = adc_response[1]
                 if adc_response_code:
-                    response = requests.get(SITE + "/api/v1/evaluations",
+                    response = requests.get(f"{BASE_URL}/api/v1/evaluations",
                                             params={"user_email": user_data["sp_email"],
                                                     "authentication_token": user_data["sp_token"],
                                                     "page": 1,
@@ -230,18 +237,19 @@ def newsfeeds_checker(conn: MySQLConnection) -> bool:
         return True
 
 
-def open_shifts_checker(conn: MySQLConnection) -> bool:
-    locations = work_data.converter(conn=conn, sp_uid=user_data["sp_uid"], today=datetime.now().strftime("%d.%m.%Y"))
-    prepare_any_url = requests.models.PreparedRequest()
-    shifts_url_params = {"user_email": user_data["sp_email"],
-                         "authentication_token": user_data["sp_token"],
-                         "company_id": COMPANY_ID,
-                         "page": 1,
-                         "per_page": 150,
-                         "only_open": "true",
-                         "order_dir": "desc"}
-    prepare_any_url.prepare_url(SITE + "/api/v1/shifts", shifts_url_params)
-    prepared_url = prepare_any_url.url
+def create_open_shifts_url(locations: list) -> str:
+    shifts_url_params = {
+        "user_email": user_data["sp_email"],
+        "authentication_token": user_data["sp_token"],
+        "company_id": COMPANY_ID,
+        "page": 1,
+        "per_page": 100,
+        "only_open": "true",
+        "order_dir": "desc"
+    }
+    url_preparer = requests.models.PreparedRequest()
+    url_preparer.prepare_url(f"{BASE_URL}/api/v1/shifts", params=shifts_url_params)
+    prepared_url = url_preparer.url
     for location in locations:
         if len(location["dates"]) > 0:
             if sp_user_data["bike_status"] or sp_user_data["scooter_status"]:
@@ -253,6 +261,12 @@ def open_shifts_checker(conn: MySQLConnection) -> bool:
             if sp_user_data["car_status"]:
                 for car_location_id in location['ids']['car']:
                     prepared_url += f"&locations_position_ids[]={car_location_id}"
+    return prepared_url
+
+
+def open_shifts_checker(conn: MySQLConnection) -> bool:
+    locations = work_data.converter(conn=conn, sp_uid=user_data["sp_uid"], today=datetime.now())
+    prepared_url = create_open_shifts_url(locations)
     response = requests.get(prepared_url)
     page_json = json.loads(response.text)
     if 'error' in page_json:
@@ -264,6 +278,7 @@ def open_shifts_checker(conn: MySQLConnection) -> bool:
         return False
     else:
         json_items = page_json["items"]
+
         for item in json_items:
             json_pos_id = item["locations_position_id"]
             isotime_starts = item["starts_at"]
