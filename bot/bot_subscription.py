@@ -1,4 +1,4 @@
-# Version 2.3.1 release
+# Version 2.3.2 release
 
 import configparser
 import mysql.connector as mysql
@@ -9,7 +9,7 @@ from aiogram.filters import Text
 from aiogram.fsm.context import FSMContext
 from aiogram.types import LabeledPrice
 
-import bot_keyboards
+from bot_keyboards import create_menu_keyboard
 from tools import config_data
 from tools import db
 
@@ -60,7 +60,7 @@ async def trial_7(message: types.Message, state: FSMContext):
     user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
     if user_data["sp_uid"]:
         sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
-        keyboard = await bot_keyboards.create_menu_keyboard(sp_user_data=sp_user_data)
+        keyboard = await create_menu_keyboard(sp_user_data=sp_user_data)
         if not sp_user_data["used_trial_btn"]:
             db.sp_users_subscriptions_update_user(conn=db_connect, sp_uid=user_data["sp_uid"], used_trial_btn=True)
             letters = string.ascii_lowercase + string.digits
@@ -73,7 +73,7 @@ async def trial_7(message: types.Message, state: FSMContext):
         else:
             await message.answer("🚫 You have already got the trial key!", reply_markup=keyboard)
     else:
-        keyboard = await bot_keyboards.create_menu_keyboard()
+        keyboard = await create_menu_keyboard()
         await message.answer("🚫 You aren't authorized! For a login, use a special button or /auth command",
                              reply_markup=keyboard)
     db_connect.close()
@@ -102,9 +102,9 @@ async def successful_payment(message: types.Message, state: FSMContext):
         user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
         if user_data["sp_uid"]:
             sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
-            keyboard = await bot_keyboards.create_menu_keyboard(sp_user_data=sp_user_data)
+            keyboard = await create_menu_keyboard(sp_user_data=sp_user_data)
         else:
-            keyboard = bot_keyboards.create_menu_keyboard()
+            keyboard = create_menu_keyboard()
         if key_type == "premium":
             await message.reply(f"🔑 <b>Key</b>: <code>{key}</code>\n"
                                 f"     ├─ 💎 <b>Type</b>: <code>Premium</code>\n"
