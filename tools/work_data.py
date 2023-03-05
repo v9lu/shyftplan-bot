@@ -1,4 +1,4 @@
-# Version 1.5.3 release
+# Version 1.6.0 release
 
 import copy
 import json
@@ -97,64 +97,61 @@ def take_date(element):
     return element
 
 
-def converter(conn: MySQLConnection, sp_uid: int, today: str) -> list:
+def converter(conn: MySQLConnection, sp_uid: int, today: datetime) -> list:
     # conn > sp_users_db
     locations = copy.deepcopy(locations_sample)
 
     # READ SHIFTS
     sp_user_data = db.sp_users_get_user(conn=conn, sp_uid=sp_uid)
-    work_data_extracted = json.loads(sp_user_data["shifts"]) if sp_user_data["shifts"] else []
-    work_data = []
+    shifts_extracted = json.loads(sp_user_data["shifts"]) if sp_user_data["shifts"] else []
 
     # REMOVE OUTDATED DAYS
-    for work_day in work_data_extracted:
-        if today in work_day:
-            work_data_extracted = work_data_extracted[work_data_extracted.index(work_day):]
-            break
+    shifts_to_keep = []
+    for shift in shifts_extracted:
+        shift_date_str = shift.split("/")[1]
+        shift_date = datetime.strptime(shift_date_str, "%d.%m.%Y")
+        if shift_date >= today:
+            shifts_to_keep.append(shift)
 
     # OTHER ACTIONS
-    for work_day in work_data_extracted:
-        list_from_work_day = work_day.split("/")
-        template = '/'.join(list_from_work_day[:2])  # '/'.join(["szarych", "09.09.2020"]) >>> "szarych/09.09.2020"
-        if template not in work_data and not work_day.isspace() and len(list_from_work_day) > 2:
-            work_data.append(template)
-    for work_day in work_data_extracted:
-        list_from_work_day = work_day.split("/")
-        template = '/'.join(list_from_work_day[:2])  # '/'.join(["szarych", "09.09.2020"]) >>> "szarych/09.09.2020"
-        for index in range(len(work_data)):
-            if template in work_data[index]:
-                work_day = work_day.split()[0]
-
+    shifts = []
+    for shift in shifts_to_keep:
+        shift_components = shift.split("/")
+        template = '/'.join(shift_components[:2])  # '/'.join(["szarych", "09.09.2020"]) >>> "szarych/09.09.2020"
+        if template not in shifts and not shift.isspace() and len(shift_components) > 2:
+            shifts.append(template)
+    for shift in shifts_to_keep:
+        shift_components = shift.split("/")
+        template = '/'.join(shift_components[:2])  # '/'.join(["szarych", "09.09.2020"]) >>> "szarych/09.09.2020"
+        for index in range(len(shifts)):
+            if template in shifts[index]:
+                shift = shift.split()[0]
                 # work_data[work_data.index(work_data[index])] >>> work_data[0]
                 # '/'.join(work_day.split('/')[2:]) >>> '/'.join(WORK_DAY_HOURS_ONLY) >>> '/'.join(["07:00-11:00", ...])
                 # >>> work_data[0] += '/' + "07:00-11:00/11:00-15:00"
-                work_data[work_data.index(work_data[index])] += '/' + '/'.join(work_day.split('/')[2:])
+                shifts[shifts.index(shifts[index])] += '/' + '/'.join(shift.split('/')[2:])
 
     # WRITE RESULT
-    work_data.sort(key=take_date)
-    db.sp_users_configs_update_user(conn=conn, sp_uid=sp_uid, shifts=json.dumps(work_data))
+    shifts.sort(key=take_date)
+    db.sp_users_configs_update_user(conn=conn, sp_uid=sp_uid, shifts=json.dumps(shifts))
 
     # WORK WITH LOCATIONS LIST
     for index in range(len(locations)):
-        for work_day in work_data:
-            work_day = list(filter(None, work_day.split("/")))  # "name/date/15-19" > ["name", "date", "15:00-19:00"]
-            work_day_location_name = work_day[0]
-            if work_day_location_name == locations[index]["name"]:
-                work_day_calendar_day = work_day[1]
-                work_day_hours = work_day[2:]
-                for hours_couple in work_day_hours:  # ["name", "date", "15:00-19:00"] > ["15:00-19:00"]
-                    hours_couple = hours_couple.replace(".", ":")  # 15:00-19.00 > 15:00-19:00
+        for shift in shifts:
+            shift_components = shift.split("/")  # "name/date/15-19" > ["name", "date", "15:00-19:00"]
+            shift_location = shift_components[0]
+            if shift_location == locations[index]["name"]:
+                shift_date_str = shift_components[1]
+                shift_hours: list = shift_components[2:]
+                for hours_couple in shift_hours:  # ["name", "date", "15:00-19:00"] > ["15:00-19:00"]
                     starts_ends_time = hours_couple.split("-")  # 15:00-19:00 > ["15:00", "19:00"]
                     starts_time = starts_ends_time[0]
                     ends_time = starts_ends_time[1]
-
-                    dt_starts = datetime.strptime(work_day_calendar_day + starts_time, '%d.%m.%Y%H:%M')
-                    dt_ends = datetime.strptime(work_day_calendar_day + ends_time, '%d.%m.%Y%H:%M')
+                    dt_starts = datetime.strptime(shift_date_str + starts_time, '%d.%m.%Y%H:%M')
+                    dt_ends = datetime.strptime(shift_date_str + ends_time, '%d.%m.%Y%H:%M')
                     if ends_time == "00:00" or ends_time == "00:30":
                         dt_ends += timedelta(days=1)
-
                     locations[index]["dates"].append((dt_starts, dt_ends))
-
     return locations
 
 
