@@ -1,4 +1,4 @@
-# Version 1.3.0 release
+# Version 1.3.1 release
 
 import configparser
 import mysql.connector as mysql
@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 
 from tools import config_data
 from tools import db
-import bot_keyboards
+from bot_keyboards import create_menu_keyboard, create_menu_button_keyboard
 
 router = Router()
 
@@ -24,7 +24,7 @@ class WaitKey(StatesGroup):
 @router.message(Text(text="🔑 Activate key"))
 async def activate_key_btn(message: types.Message, state: FSMContext) -> None:
     await state.set_state(WaitKey.waiting_for_key)
-    keyboard = await bot_keyboards.create_menu_button_keyboard()
+    keyboard = await create_menu_button_keyboard()
     await message.answer("🔑 Please enter your key", reply_markup=keyboard)
 
 
@@ -40,7 +40,7 @@ async def create_key_btn(message: types.Message, state: FSMContext) -> None:
     if user_data["sp_uid"]:
         sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
         if sp_user_data["subscription"] == "admin":
-            keyboard = await bot_keyboards.create_menu_keyboard(sp_user_data=sp_user_data)
+            keyboard = await create_menu_keyboard(sp_user_data=sp_user_data)
             await message.answer("🔑 Key generator:\n"
                                  "1. Type [standard/premium].\n"
                                  "2. Days [15]\n\n"
@@ -61,7 +61,7 @@ async def deactivate_key_btn(message: types.Message, state: FSMContext) -> None:
     if user_data["sp_uid"]:
         sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
         if sp_user_data["subscription"] == "admin":
-            keyboard = await bot_keyboards.create_menu_keyboard(sp_user_data=sp_user_data)
+            keyboard = await create_menu_keyboard(sp_user_data=sp_user_data)
             await message.answer("🚫 Key deactivator:\n\n"
                                  "Usage: /deactivate <b>key</b>",
                                  reply_markup=keyboard, parse_mode="HTML")
@@ -158,7 +158,7 @@ async def key_waiting(message: types.Message, state: FSMContext, bot: Bot) -> No
                                                           subscription="trial", expire=expire_date.isoformat(),
                                                           used_trial=True)
                     sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
-                    keyboard = await bot_keyboards.create_menu_keyboard(sp_user_data=sp_user_data)
+                    keyboard = await create_menu_keyboard(sp_user_data=sp_user_data)
                     await message.answer("✅ <b>Successfully activated!</b>\n"
                                          f"     ├─ 🆓 <b>Subscription</b>: <code>Trial</code>\n"
                                          f"     ├─ 📅 <b>Days</b>: <code>{key_days}</code>\n"
@@ -171,13 +171,13 @@ async def key_waiting(message: types.Message, state: FSMContext, bot: Bot) -> No
                                                        f"now you can connect him to the bot</b>",
                                            parse_mode="HTML")
                 else:
-                    keyboard = await bot_keyboards.create_menu_keyboard(sp_user_data=sp_user_data)
+                    keyboard = await create_menu_keyboard(sp_user_data=sp_user_data)
                     await message.answer("🚫 You have already used the trial period", reply_markup=keyboard)
             else:
                 db.sp_users_subscriptions_update_user(conn=db_connect, sp_uid=user_data["sp_uid"],
                                                       subscription=key_type, expire=expire_date.isoformat())
                 sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
-                keyboard = await bot_keyboards.create_menu_keyboard(sp_user_data=sp_user_data)
+                keyboard = await create_menu_keyboard(sp_user_data=sp_user_data)
                 if key_type == "standard":
                     await message.answer("✅ <b>Successfully activated!</b>\n"
                                          f"     ├─ 🔹 <b>Subscription</b>: <code>Standard</code>\n"
@@ -227,10 +227,10 @@ async def key_waiting(message: types.Message, state: FSMContext, bot: Bot) -> No
                                                        f"now you can connect him to the bot</b>",
                                            parse_mode="HTML")
         else:
-            keyboard = await bot_keyboards.create_menu_keyboard(sp_user_data=sp_user_data)
+            keyboard = await create_menu_keyboard(sp_user_data=sp_user_data)
             await message.answer("❌ Key not found!", reply_markup=keyboard)
     else:
-        keyboard = await bot_keyboards.create_menu_keyboard()
+        keyboard = await create_menu_keyboard()
         await message.answer("🚫 You aren't authorized! For a login, use a special button or /auth command",
                              reply_markup=keyboard)
     await state.clear()
