@@ -1,4 +1,4 @@
-# Version 2.2.3 release
+# Version 3.0.0 release
 
 import asyncio
 import configparser
@@ -7,72 +7,26 @@ from aiogram import Router, types
 from aiogram.filters import Text
 from aiogram.filters.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
-from aiogram.types import BufferedInputFile
+from aiogram.exceptions import TelegramBadRequest
 
-from bot_keyboards import *
-from tools import config_data
-from tools import db
-from tools import work_data
+from bot_keyboards import create_menu_keyboard, create_ds_keyboard, create_years_keyboard, create_months_keyboard
+from bot_keyboards import create_days_keyboard, create_hours_keyboard
+from tools import config_data, db, work_data
 
 router = Router()
 
 
 class UpdateShifts(StatesGroup):
-    waiting_for_shifts_add = State()
-    waiting_for_shifts_remove = State()
+    waiting_for_ds = State()
+    waiting_for_year = State()
+    waiting_for_month = State()
+    waiting_for_day = State()
+    waiting_for_hours = State()
 
 
-@router.message(Text(text="📗 Add shifts"))
-async def add_shifts(message: types.Message, state: FSMContext) -> None:
+@router.message(Text(text="♻️ Update shifts"))
+async def update_shifts(message: types.Message, state: FSMContext) -> None:
     await state.clear()
-    keyboard = await create_menu_button_keyboard()
-    await message.answer("📗 Now enter shifts to add. For example:\n"
-                         "<b>[first ds word]/[date (dd.mm.yyyy)]/[time]</b>\n\n"
-                         "<i>lekka/15.12.2022/19:00-23:30/19:00-00:30</i>\n"
-                         "<i>szarych/16.12.2022/07:00-11:00</i>",
-                         reply_markup=keyboard, parse_mode="HTML")
-    await state.set_state(UpdateShifts.waiting_for_shifts_add)
-
-
-@router.message(Text(text="📕 Remove shifts"))
-async def remove_shifts(message: types.Message, state: FSMContext) -> None:
-    await state.clear()
-    keyboard = await create_menu_button_keyboard()
-    await message.answer("📕 Now enter shifts to remove. For example:\n"
-                         "<b>[first ds word]/[date (dd.mm.yyyy)]/[time]</b>\n\n"
-                         "<i>lekka/15.12.2022/19:00-23:30/19:00-00:30</i>\n"
-                         "<i>szarych/16.12.2022/07:00-11:00</i>",
-                         reply_markup=keyboard, parse_mode="HTML")
-    await state.set_state(UpdateShifts.waiting_for_shifts_remove)
-
-
-@router.message(Text(text="📋 My shifts"))
-async def my_shifts(message: types.Message, state: FSMContext) -> None:
-    await state.clear()
-    db_data = config_data.get_db(configparser.ConfigParser())
-    db_connect = mysql.connect(user="root",
-                               host=db_data["ip"],
-                               port=db_data["port"],
-                               password=db_data["password"])
-    user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
-    if user_data["sp_uid"]:
-        bytes_file = work_data.get_bytes_file(conn=db_connect, sp_uid=user_data["sp_uid"])
-        if bytes_file:
-            shifts_file = BufferedInputFile(bytes_file, "shifts.txt")
-            await message.answer_document(document=shifts_file, caption="📋 This is a list of your shifts")
-        else:
-            await message.answer("📄 You have no shifts!")
-    else:
-        keyboard = await create_menu_keyboard()
-        await message.answer("🚫 You aren't authorized! For a login, use a special button or /auth command",
-                             reply_markup=keyboard)
-    db_connect.close()
-
-
-@router.message(UpdateShifts.waiting_for_shifts_add)
-@router.message(UpdateShifts.waiting_for_shifts_remove)
-async def shifts_waiting(message: types.Message, state: FSMContext) -> None:
-    state_name = await state.get_state()
     db_data = config_data.get_db(configparser.ConfigParser())
     db_connect = mysql.connect(user="root",
                                host=db_data["ip"],
@@ -81,30 +35,189 @@ async def shifts_waiting(message: types.Message, state: FSMContext) -> None:
     user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
     if user_data["sp_uid"]:
         sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
-        if sp_user_data["prog_status"]:
-            # pause program
-            db.sp_users_configs_update_user(conn=db_connect, sp_uid=user_data["sp_uid"], prog_status=False)
-            # update shifts
-            keyboard = await create_menu_button_keyboard()
-            await message.answer("🌀 Please wait, update in progress", reply_markup=keyboard)
-            await asyncio.sleep(sp_user_data["prog_sleep"] * 2)
-            if state_name == "UpdateShifts:waiting_for_shifts_add":
-                work_data.add_days(conn=db_connect, sp_uid=user_data["sp_uid"], days=message.text)
-            elif state_name == "UpdateShifts:waiting_for_shifts_remove":
-                work_data.remove_days(conn=db_connect, sp_uid=user_data["sp_uid"], days=message.text)
-            # unpause program
-            db.sp_users_configs_update_user(conn=db_connect, sp_uid=user_data["sp_uid"], prog_status=True)
-        else:
-            # update shifts
-            if state_name == "UpdateShifts:waiting_for_shifts_add":
-                work_data.add_days(conn=db_connect, sp_uid=user_data["sp_uid"], days=message.text)
-            elif state_name == "UpdateShifts:waiting_for_shifts_remove":
-                work_data.remove_days(conn=db_connect, sp_uid=user_data["sp_uid"], days=message.text)
-        keyboard = await create_update_shifts_keyboard()
-        await message.answer("✅ Shifts updated successful", reply_markup=keyboard)
+        keyboard = await create_ds_keyboard(sp_user_data["shifts"])
+        await message.answer("♻️ Please select the DS where you would like to set or cancel auto-shifting",
+                             reply_markup=keyboard, parse_mode="HTML")
+        await state.set_state(UpdateShifts.waiting_for_ds)
     else:
         keyboard = await create_menu_keyboard()
         await message.answer("🚫 You aren't authorized! For a login, use a special button or /auth command",
                              reply_markup=keyboard)
+    db_connect.close()
+
+
+@router.callback_query(UpdateShifts.waiting_for_ds)
+async def update_shifts_ds(call: types.CallbackQuery, state: FSMContext) -> None:
     await state.clear()
+    await state.update_data(ds=call.data)
+    db_data = config_data.get_db(configparser.ConfigParser())
+    db_connect = mysql.connect(user="root",
+                               host=db_data["ip"],
+                               port=db_data["port"],
+                               password=db_data["password"])
+    user_data = db.users_get_user(conn=db_connect, user_id=call.from_user.id)
+    sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
+    keyboard = await create_years_keyboard(user_shifts=sp_user_data["shifts"],
+                                           ds_name=call.data)
+    try:
+        await call.message.edit_text("♻️ Now select auto-shifting year for current DS", reply_markup=keyboard)
+        await state.set_state(UpdateShifts.waiting_for_year)
+    except TelegramBadRequest:
+        pass
+    await call.answer()
+    db_connect.close()
+
+
+@router.callback_query(UpdateShifts.waiting_for_year)
+async def update_shifts_year(call: types.CallbackQuery, state: FSMContext) -> None:
+    db_data = config_data.get_db(configparser.ConfigParser())
+    db_connect = mysql.connect(user="root",
+                               host=db_data["ip"],
+                               port=db_data["port"],
+                               password=db_data["password"])
+    user_data = db.users_get_user(conn=db_connect, user_id=call.from_user.id)
+    sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
+    state_data = await state.get_data()
+    if call.data != "step_back":
+        await state.update_data(year=call.data)
+        keyboard = await create_months_keyboard(user_shifts=sp_user_data["shifts"],
+                                                ds_name=state_data["ds"], year=call.data)
+        try:
+            await call.message.edit_text("♻️ Now select month", reply_markup=keyboard)
+            await state.set_state(UpdateShifts.waiting_for_month)
+        except TelegramBadRequest:
+            pass
+        await call.answer()
+    else:
+        keyboard = await create_ds_keyboard(user_shifts=sp_user_data["shifts"])
+        try:
+            await call.message.edit_text("♻️ Please select the DS where you would like to set or cancel auto-shifting",
+                                         reply_markup=keyboard)
+            await state.set_state(UpdateShifts.waiting_for_ds)
+        except TelegramBadRequest:
+            pass
+        await call.answer()
+    db_connect.close()
+
+
+@router.callback_query(UpdateShifts.waiting_for_month)
+async def update_shifts_month(call: types.CallbackQuery, state: FSMContext) -> None:
+    db_data = config_data.get_db(configparser.ConfigParser())
+    db_connect = mysql.connect(user="root",
+                               host=db_data["ip"],
+                               port=db_data["port"],
+                               password=db_data["password"])
+    user_data = db.users_get_user(conn=db_connect, user_id=call.from_user.id)
+    sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
+    state_data = await state.get_data()
+    if call.data != "step_back":
+        await state.update_data(month=call.data)
+        keyboard = await create_days_keyboard(user_shifts=sp_user_data["shifts"],
+                                              ds_name=state_data["ds"], year=state_data["year"],
+                                              month=call.data)
+        try:
+            await call.message.edit_text("♻️ Select day", reply_markup=keyboard)
+            await state.set_state(UpdateShifts.waiting_for_day)
+        except TelegramBadRequest:
+            pass
+        await call.answer()
+    else:
+        keyboard = await create_years_keyboard(user_shifts=sp_user_data["shifts"], ds_name=state_data["ds"])
+        try:
+            await call.message.edit_text("♻️ Now select auto-shifting year for current DS", reply_markup=keyboard)
+            await state.set_state(UpdateShifts.waiting_for_year)
+        except TelegramBadRequest:
+            pass
+        await call.answer()
+    db_connect.close()
+
+
+@router.callback_query(UpdateShifts.waiting_for_day)
+async def update_shifts_day(call: types.CallbackQuery, state: FSMContext) -> None:
+    db_data = config_data.get_db(configparser.ConfigParser())
+    db_connect = mysql.connect(user="root",
+                               host=db_data["ip"],
+                               port=db_data["port"],
+                               password=db_data["password"])
+    user_data = db.users_get_user(conn=db_connect, user_id=call.from_user.id)
+    sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
+    state_data = await state.get_data()
+    if call.data != "step_back":
+        await state.update_data(day=call.data)
+        keyboard = await create_hours_keyboard(user_shifts=sp_user_data["shifts"],
+                                               ds_name=state_data["ds"], year=state_data["year"],
+                                               month=state_data["month"], day=call.data)
+        try:
+            await call.message.edit_text("♻️ Now click on hours couple to set/unset auto-shifting time",
+                                         reply_markup=keyboard)
+            await state.set_state(UpdateShifts.waiting_for_hours)
+        except TelegramBadRequest:
+            pass
+        await call.answer()
+    else:
+        keyboard = await create_months_keyboard(user_shifts=sp_user_data["shifts"],
+                                                ds_name=state_data["ds"], year=state_data["year"])
+        try:
+            await call.message.edit_text("♻️ Now select month", reply_markup=keyboard)
+            await state.set_state(UpdateShifts.waiting_for_month)
+        except TelegramBadRequest:
+            pass
+        await call.answer()
+    db_connect.close()
+
+
+@router.callback_query(UpdateShifts.waiting_for_hours)
+async def update_shifts_hours(call: types.CallbackQuery, state: FSMContext) -> None:
+    db_data = config_data.get_db(configparser.ConfigParser())
+    db_connect = mysql.connect(user="root",
+                               host=db_data["ip"],
+                               port=db_data["port"],
+                               password=db_data["password"])
+    user_data = db.users_get_user(conn=db_connect, user_id=call.from_user.id)
+    sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
+    state_data = await state.get_data()
+    if call.data != "step_back":
+        composed_data = f"{state_data['ds']}/{state_data['day']}.{state_data['month']}.{state_data['year']}/{call.data}"
+        composed_data_fragments = composed_data.split("_")
+        shift = composed_data_fragments[0]
+        action = composed_data_fragments[1]
+        if sp_user_data["prog_status"]:
+            # pause program
+            db.sp_users_configs_update_user(conn=db_connect, sp_uid=user_data["sp_uid"], prog_status=False)
+            await call.message.edit_text("🌀 Please wait, update in progress")
+            await asyncio.sleep(sp_user_data["prog_sleep"] * 1.5)
+            # update shifts
+            if action == "add":
+                work_data.add_days(conn=db_connect, sp_uid=user_data["sp_uid"], days=shift)
+            elif action == "remove":
+                work_data.remove_days(conn=db_connect, sp_uid=user_data["sp_uid"], days=shift)
+            # unpause program
+            db.sp_users_configs_update_user(conn=db_connect, sp_uid=user_data["sp_uid"], prog_status=True)
+        else:
+            # update shifts
+            if action == "add":
+                work_data.add_days(conn=db_connect, sp_uid=user_data["sp_uid"], days=shift)
+            elif action == "remove":
+                work_data.remove_days(conn=db_connect, sp_uid=user_data["sp_uid"], days=shift)
+        sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
+        keyboard = await create_hours_keyboard(user_shifts=sp_user_data["shifts"],
+                                               ds_name=state_data["ds"], year=state_data["year"],
+                                               month=state_data["month"], day=state_data["day"])
+        try:
+            await call.message.edit_text("♻️ Now click on hours couple to set/unset auto-shifting time",
+                                         reply_markup=keyboard)
+            await state.set_state(UpdateShifts.waiting_for_hours)
+        except TelegramBadRequest:
+            pass
+        await call.answer()
+    else:
+        keyboard = await create_days_keyboard(user_shifts=sp_user_data["shifts"],
+                                              ds_name=state_data["ds"], year=state_data["year"],
+                                              month=state_data["month"])
+        try:
+            await call.message.edit_text("♻️ Select day", reply_markup=keyboard)
+            await state.set_state(UpdateShifts.waiting_for_day)
+        except TelegramBadRequest:
+            pass
+        await call.answer()
     db_connect.close()
