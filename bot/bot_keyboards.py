@@ -1,4 +1,4 @@
-# Version 3.0.0 release
+# Version 3.1.0 release
 
 import calendar
 import datetime
@@ -194,7 +194,7 @@ async def create_months_keyboard(user_shifts: str, ds_name: str, year: str) -> I
                     break
             else:
                 continue
-        keyboard_buttons.append(InlineKeyboardButton(text=month_name, callback_data=month_num))
+        keyboard_buttons.append(InlineKeyboardButton(text=month_name, callback_data=f"{month_num:02d}"))
 
     months_keyboard = InlineKeyboardBuilder()
     months_keyboard.row(*keyboard_buttons, width=3)
@@ -230,7 +230,7 @@ async def create_days_keyboard(user_shifts: str, ds_name: str, year: str, month:
                     break
             else:
                 continue
-        keyboard_buttons.append(InlineKeyboardButton(text=day_text, callback_data=day))
+        keyboard_buttons.append(InlineKeyboardButton(text=day_text, callback_data=f"{day:02d}"))
 
     days_keyboard = InlineKeyboardBuilder()
     days_keyboard.row(*keyboard_buttons, width=7)
@@ -268,5 +268,8 @@ async def create_hours_keyboard(user_shifts: str, ds_name: str, year: str, month
 
     hours_keyboard = InlineKeyboardBuilder()
     hours_keyboard.row(*keyboard_buttons, width=3)
+
+    hours_keyboard.row(InlineKeyboardButton(text="🟩️ Select all", callback_data="select_all"),
+                       InlineKeyboardButton(text="🟥️ Deselect all", callback_data="deselect_all"))
     hours_keyboard.row(InlineKeyboardButton(text="◀️ Back to days", callback_data="step_back"))
     return hours_keyboard.as_markup()
