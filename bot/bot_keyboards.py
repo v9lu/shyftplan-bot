@@ -1,5 +1,8 @@
-# Version 2.3.2 release
+# Version 3.0.0 release
 
+import calendar
+import datetime
+import json
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, KeyboardButton, ReplyKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 from typing import Optional
@@ -104,13 +107,166 @@ async def create_settings_keyboard(sp_user_data: dict) -> InlineKeyboardMarkup:
     return settings_keyboard.as_markup()
 
 
-async def create_update_shifts_keyboard() -> ReplyKeyboardMarkup:
-    update_shifts_keyboard = ReplyKeyboardBuilder()
-    row_shifts_btn = KeyboardButton(text="📗 Add shifts")
-    delete_shifts_btn = KeyboardButton(text="📕 Remove shifts")
-    my_shifts_btn = KeyboardButton(text="📋 My shifts")
-    menu_btn = KeyboardButton(text="🎛 Menu")
-    update_shifts_keyboard.row(row_shifts_btn, delete_shifts_btn)
-    update_shifts_keyboard.row(my_shifts_btn)
-    update_shifts_keyboard.row(menu_btn)
-    return update_shifts_keyboard.as_markup(resize_keyboard=True)
+async def create_ds_keyboard(user_shifts: str) -> InlineKeyboardMarkup:
+    locations = {
+        "czluchowska": "Człuchowska 35",
+        "dolna": "Dolna 41",
+        "elektryczna": "Elektryczna 2",
+        "europlex": "Europlex (Puławska 17)",
+        "grenadierow": "Grenadierów 11",
+        "grochowskiego": "Grochowskiego 5 [Piaseczno]",
+        "hawajska": "Hawajska 11",
+        "herbu": "Herbu Janina 5",
+        "kamienna": "Kamienna 1",
+        "konstruktorska": "Konstruktorska 13A",
+        "lekka": "Lekka 3",
+        "lirowa": "Lirowa 26",
+        "miedzynarodowa": "Międzynarodowa 42",
+        "rydygiera": "Rydygiera 13",
+        "sielecka": "Sielecka 35",
+        "sikorskiego": "Sikorskiego 3A",
+        "solidarnosci": "Solidarności 155",
+        "szarych": "Szarych Szeregów 11",
+        "tarnowiecka": "Tarnowiecka 13",
+    }
+    keyboard_buttons = []
+
+    for ds_name, ds_fullname in locations.items():
+        if ds_name in user_shifts:
+            ds_fullname = "🟢 " + ds_fullname
+        keyboard_buttons.append(InlineKeyboardButton(text=ds_fullname, callback_data=ds_name))
+
+    ds_keyboard = InlineKeyboardBuilder()
+    ds_keyboard.row(*keyboard_buttons, width=4)
+    return ds_keyboard.as_markup()
+
+
+async def create_years_keyboard(user_shifts: str, ds_name: str) -> InlineKeyboardMarkup:
+    shifts_extracted = json.loads(user_shifts) if user_shifts else []
+    current_year = datetime.datetime.now().year
+    years = [str(current_year), str(current_year + 1)]
+    keyboard_buttons = []
+
+    for year in years:
+        year_call = year
+        for shift in shifts_extracted:
+            shift_components = shift.split("/")
+            shift_ds_name = shift_components[0]
+            if shift_ds_name == ds_name:
+                shift_date_str = shift_components[1]
+                shift_date_obj = datetime.datetime.strptime(shift_date_str, "%d.%m.%Y")
+                shift_year = shift_date_obj.year
+                if shift_year == int(year):
+                    year = "🟢 " + year
+                    break
+            else:
+                continue
+        keyboard_buttons.append(InlineKeyboardButton(text=year, callback_data=year_call))
+
+    years_keyboard = InlineKeyboardBuilder()
+    years_keyboard.row(*keyboard_buttons, width=1)
+    years_keyboard.row(InlineKeyboardButton(text="◀️ Back to DS", callback_data="step_back"))
+    return years_keyboard.as_markup()
+
+
+async def create_months_keyboard(user_shifts: str, ds_name: str, year: str) -> InlineKeyboardMarkup:
+    shifts_extracted = json.loads(user_shifts) if user_shifts else []
+    now = datetime.datetime.now()
+    current_year = now.year
+    if current_year == int(year):
+        current_month = now.month
+    else:
+        current_month = 1
+    keyboard_buttons = []
+
+    for month_num in range(current_month, 13):
+        month_name = datetime.date(current_year, month_num, 1).strftime('%B')
+        for shift in shifts_extracted:
+            shift_components = shift.split("/")
+            shift_ds_name = shift_components[0]
+            if shift_ds_name == ds_name:
+                shift_date_str = shift_components[1]
+                shift_date_obj = datetime.datetime.strptime(shift_date_str, "%d.%m.%Y")
+                shift_year = shift_date_obj.year
+                shift_month = shift_date_obj.month
+                if shift_year == int(year) and shift_month == month_num:
+                    month_name = "🟢 " + month_name
+                    break
+            else:
+                continue
+        keyboard_buttons.append(InlineKeyboardButton(text=month_name, callback_data=month_num))
+
+    months_keyboard = InlineKeyboardBuilder()
+    months_keyboard.row(*keyboard_buttons, width=3)
+    months_keyboard.row(InlineKeyboardButton(text="◀️ Back to years", callback_data="step_back"))
+    return months_keyboard.as_markup()
+
+
+async def create_days_keyboard(user_shifts: str, ds_name: str, year: str, month: str) -> InlineKeyboardMarkup:
+    shifts_extracted = json.loads(user_shifts) if user_shifts else []
+    now = datetime.datetime.now()
+    current_year = now.year
+    current_month = now.month
+    if current_year == int(year) and current_month == int(month):
+        current_day = now.day
+    else:
+        current_day = 1
+    num_days = calendar.monthrange(int(year), int(month))[1]
+    keyboard_buttons = []
+
+    for day in range(current_day, num_days + 1):
+        day_text = f"{day:02d}"
+        for shift in shifts_extracted:
+            shift_components = shift.split("/")
+            shift_ds_name = shift_components[0]
+            if shift_ds_name == ds_name:
+                shift_date_str = shift_components[1]
+                shift_date_obj = datetime.datetime.strptime(shift_date_str, "%d.%m.%Y")
+                shift_year = shift_date_obj.year
+                shift_month = shift_date_obj.month
+                shift_day = shift_date_obj.day
+                if shift_year == int(year) and shift_month == int(month) and shift_day == day:
+                    day_text = "🟢 " + day_text
+                    break
+            else:
+                continue
+        keyboard_buttons.append(InlineKeyboardButton(text=day_text, callback_data=day))
+
+    days_keyboard = InlineKeyboardBuilder()
+    days_keyboard.row(*keyboard_buttons, width=7)
+    days_keyboard.row(InlineKeyboardButton(text="◀️ Back to months", callback_data="step_back"))
+    return days_keyboard.as_markup()
+
+
+async def create_hours_keyboard(user_shifts: str, ds_name: str, year: str, month: str,
+                                day: str) -> InlineKeyboardMarkup:
+    shifts_extracted = json.loads(user_shifts) if user_shifts else []
+    hours_couples = ["07:00-11:00", "11:00-15:00", "15:00-19:00", "19:00-23:30", "19:00-00:30"]
+    keyboard_buttons = []
+
+    for hours_couple in hours_couples:
+        for shift in shifts_extracted:
+            shift_components = shift.split("/")
+            shift_ds_name = shift_components[0]
+            if shift_ds_name == ds_name:
+                shift_date_str = shift_components[1]
+                shift_date_obj = datetime.datetime.strptime(shift_date_str, "%d.%m.%Y")
+                shift_year = shift_date_obj.year
+                shift_month = shift_date_obj.month
+                shift_day = shift_date_obj.day
+                if hours_couple in shift and \
+                   shift_year == int(year) and shift_month == int(month) and shift_day == int(day):
+                    hours_text = "✅ " + hours_couple
+                    hours_call = hours_couple + "_remove"
+                    break
+            else:
+                continue
+        else:
+            hours_text = hours_couple
+            hours_call = hours_couple + "_add"
+        keyboard_buttons.append(InlineKeyboardButton(text=hours_text, callback_data=hours_call))
+
+    hours_keyboard = InlineKeyboardBuilder()
+    hours_keyboard.row(*keyboard_buttons, width=3)
+    hours_keyboard.row(InlineKeyboardButton(text="◀️ Back to days", callback_data="step_back"))
+    return hours_keyboard.as_markup()
