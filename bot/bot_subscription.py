@@ -1,9 +1,10 @@
-# Version 2.3.2 release
+# Version 2.3.3 release
 
 import configparser
 import mysql.connector as mysql
 import random
 import string
+from aiogram import F
 from aiogram import Router, types
 from aiogram.filters import Text
 from aiogram.fsm.context import FSMContext
@@ -29,8 +30,7 @@ async def premium_30(message: types.Message, state: FSMContext) -> None:
                                  prices=[LabeledPrice(label="💎 Premium 30 day's", amount=30000)],
                                  max_tip_amount=10000,
                                  suggested_tip_amounts=[500, 1000, 2000],
-                                 photo_url="https://i.imgur.com/aNKX0gH.jpeg",
-                                 need_name=True)
+                                 photo_url="https://i.imgur.com/aNKX0gH.jpeg")
 
 
 @router.message(Text(text="🔹 30 day's standard"))
@@ -45,8 +45,7 @@ async def standard_30(message: types.Message, state: FSMContext) -> None:
                                  prices=[LabeledPrice(label="🔹 Standard 30 day's", amount=10000)],
                                  max_tip_amount=10000,
                                  suggested_tip_amounts=[500, 1000, 2000],
-                                 photo_url="https://i.imgur.com/aNKX0gH.jpeg",
-                                 need_name=True)
+                                 photo_url="https://i.imgur.com/aNKX0gH.jpeg")
 
 
 @router.message(Text(text="🆓 7 day's trial"))
@@ -80,11 +79,11 @@ async def trial_7(message: types.Message, state: FSMContext):
 
 
 @router.pre_checkout_query()
-async def pre_checkout(callback: types.PreCheckoutQuery):
-    await callback.answer(True)
+async def pre_checkout(pre_checkout_query: types.PreCheckoutQuery):
+    await pre_checkout_query.answer(True)
 
 
-@router.message()
+@router.message(F.content_type.in_("successful_payment"))
 async def successful_payment(message: types.Message, state: FSMContext):
     await state.clear()
     db_data = config_data.get_db(configparser.ConfigParser())
