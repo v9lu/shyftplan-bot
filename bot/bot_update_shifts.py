@@ -1,4 +1,4 @@
-# Version 3.0.0 release
+# Version 3.1.0 release
 
 import asyncio
 import configparser
@@ -177,7 +177,18 @@ async def update_shifts_hours(call: types.CallbackQuery, state: FSMContext) -> N
     sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
     state_data = await state.get_data()
     if call.data != "step_back":
-        composed_data = f"{state_data['ds']}/{state_data['day']}.{state_data['month']}.{state_data['year']}/{call.data}"
+        if call.data == "select_all":
+            composed_data = f"{state_data['ds']}/" \
+                            f"{state_data['day']}.{state_data['month']}.{state_data['year']}/" \
+                            f"07:00-11:00/11:00-15:00/15:00-19:00/19:00-23:30/19:00-00:30_add"
+        elif call.data == "deselect_all":
+            composed_data = f"{state_data['ds']}/" \
+                            f"{state_data['day']}.{state_data['month']}.{state_data['year']}/" \
+                            f"07:00-11:00/11:00-15:00/15:00-19:00/19:00-23:30/19:00-00:30_remove"
+        else:
+            composed_data = f"{state_data['ds']}/" \
+                            f"{state_data['day']}.{state_data['month']}.{state_data['year']}/" \
+                            f"{call.data}"
         composed_data_fragments = composed_data.split("_")
         shift = composed_data_fragments[0]
         action = composed_data_fragments[1]
