@@ -1,4 +1,4 @@
-# Version 3.1.0 release
+# Version 3.2.0 release
 
 import calendar
 import datetime
@@ -9,14 +9,13 @@ from typing import Optional
 
 
 async def create_menu_button_keyboard() -> ReplyKeyboardMarkup:
-    menu_button_keyboard = ReplyKeyboardBuilder()
     menu_btn = KeyboardButton(text="🎛 Menu")
+    menu_button_keyboard = ReplyKeyboardBuilder()
     menu_button_keyboard.row(menu_btn)
     return menu_button_keyboard.as_markup(resize_keyboard=True)
 
 
 async def create_menu_keyboard(sp_user_data: Optional[dict] = None) -> ReplyKeyboardMarkup:
-    menu_keyboard = ReplyKeyboardBuilder()
     authorize_btn = KeyboardButton(text="🔐️ Login Shyftplan")
     update_shifts_btn = KeyboardButton(text="♻️ Update shifts")
     settings_btn = KeyboardButton(text="⚙️ Settings")
@@ -26,6 +25,7 @@ async def create_menu_keyboard(sp_user_data: Optional[dict] = None) -> ReplyKeyb
     newsletter_btn = KeyboardButton(text="✉️ Newsletter")
     deactivate_key_btn = KeyboardButton(text="🚫 Deactivate key")
     statistic_btn = KeyboardButton(text="📊 Statistic")
+    menu_keyboard = ReplyKeyboardBuilder()
     if sp_user_data is None:
         menu_keyboard.row(authorize_btn)
     else:
@@ -41,27 +41,34 @@ async def create_menu_keyboard(sp_user_data: Optional[dict] = None) -> ReplyKeyb
     return menu_keyboard.as_markup(resize_keyboard=True)
 
 
-async def create_subscriptions_keyboard(sp_user_data: dict) -> ReplyKeyboardMarkup:
-    subscriptions_keyboard = ReplyKeyboardBuilder()
-    buy_30_premium_btn = KeyboardButton(text="💎 30 day's premium")
-    buy_30_standard_btn = KeyboardButton(text="🔹 30 day's standard")
-    trial_btn = KeyboardButton(text="🆓 7 day's trial")
+async def create_subscriptions_keyboard(sp_user_data: dict, allocated_subs: dict,
+                                        sub_counts: dict) -> ReplyKeyboardMarkup:
+    if sp_user_data["subscription"] == "standard" or sp_user_data["subscription"] == "premium":
+        buy_30_standard_btn = KeyboardButton(text=f"🔹 30 day's standard")
+        buy_30_premium_btn = KeyboardButton(text=f"💎 30 day's premium")
+    else:
+        buy_30_standard_btn = KeyboardButton(text=f"[{allocated_subs['standard'] - sub_counts['standard']}] "
+                                                  f"🔹 30 day's standard")
+        buy_30_premium_btn = KeyboardButton(text=f"[{allocated_subs['premium'] - sub_counts['premium']}] "
+                                                 f"💎 30 day's premium")
+    trial_btn = KeyboardButton(text=f"[{allocated_subs['trial'] - sub_counts['trial']}] 🆓 7 day's trial")
     menu_btn = KeyboardButton(text="🎛 Menu")
+    subscriptions_keyboard = ReplyKeyboardBuilder()
     if not sp_user_data["used_trial_btn"]:
-        subscriptions_keyboard.row(buy_30_premium_btn, buy_30_standard_btn)
+        subscriptions_keyboard.row(buy_30_standard_btn, buy_30_premium_btn)
         subscriptions_keyboard.row(trial_btn)
     else:
-        subscriptions_keyboard.row(buy_30_premium_btn)
         subscriptions_keyboard.row(buy_30_standard_btn)
+        subscriptions_keyboard.row(buy_30_premium_btn)
     subscriptions_keyboard.row(menu_btn)
     return subscriptions_keyboard.as_markup(resize_keyboard=True)
 
 
 async def create_settings_keyboard(sp_user_data: dict) -> InlineKeyboardMarkup:
-    status_template = "Status: {emoji}"
-    prog_statuses_template = ["Open Shifts: {emoji}", "Shift Offers: {emoji}", "News: {emoji}"]
-    transport_statuses_template = ["Bike: {emoji}", "Scooter: {emoji}", "Car: {emoji}"]
-    speed_template = "Check Speed: {emoji}"
+    status_template = "{emoji} Status"
+    prog_statuses_template = ["{emoji} Open Shifts", "{emoji} Shift Offers", "{emoji} News"]
+    transport_statuses_template = ["{emoji} Bike", "{emoji} Scooter", "{emoji} Car"]
+    speed_template = "{emoji} Check Speed"
 
     if sp_user_data["prog_status"]:
         status_template = status_template.format(emoji="✅")
