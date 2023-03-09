@@ -1,4 +1,4 @@
-# Version 2.3.4 release
+# Version 2.4.0 release
 
 from mysql.connector import MySQLConnection
 
@@ -37,7 +37,8 @@ def newsfeeds_is_old_id(conn: MySQLConnection, sp_uid: int, newsfeed_id: int) ->
     if conn.database != "newsfeeds_db":
         conn.connect(database="newsfeeds_db")
     with conn.cursor() as cursor:
-        cursor.execute("SELECT EXISTS (SELECT 1 FROM old_ids WHERE user_id=%s AND newsfeed_id=%s)", (sp_uid, newsfeed_id))
+        cursor.execute("SELECT EXISTS (SELECT 1 FROM old_ids WHERE user_id=%s AND newsfeed_id=%s)",
+                       (sp_uid, newsfeed_id))
         id_exists = cursor.fetchone()[0]
     return id_exists
 
@@ -67,8 +68,20 @@ def sp_users_get_user(conn: MySQLConnection, sp_uid: int) -> dict:
     with conn.cursor(dictionary=True) as cursor:
         cursor.execute("SELECT * FROM sp_users_configs, sp_users_subscriptions "
                        "WHERE sp_users_configs.sp_uid=%s AND sp_users_subscriptions.sp_uid=%s", (sp_uid, sp_uid))
-        user_data = cursor.fetchone()
-    return user_data
+        sp_user_data = cursor.fetchone()
+    return sp_user_data
+
+
+def sp_users_get_subs_count(conn: MySQLConnection) -> dict:
+    if conn.database != "sp_users_db":
+        conn.connect(database="sp_users_db")
+    with conn.cursor() as cursor:
+        cursor.execute("SELECT subscription, COUNT(*) FROM sp_users_subscriptions GROUP BY subscription")
+        subscription_counts = cursor.fetchall()
+    subscription_counts_dict = {subscription: count for subscription, count in subscription_counts}
+    return {"trial": subscription_counts_dict.get("trial", 0),
+            "standard": subscription_counts_dict.get("standard", 0),
+            "premium": subscription_counts_dict.get("premium", 0)}
 
 
 def sp_users_configs_update_user(conn: MySQLConnection, sp_uid: int, **kwargs) -> None:
