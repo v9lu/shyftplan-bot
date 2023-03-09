@@ -1,4 +1,4 @@
-# Version 3.0.0 release
+# Version 3.1.0 release
 
 import configparser
 import mysql.connector as mysql
@@ -8,8 +8,7 @@ from aiogram.fsm.context import FSMContext
 from datetime import datetime
 
 from bot_keyboards import create_menu_keyboard, create_subscriptions_keyboard
-from tools import config_data
-from tools import db
+from tools import config_data, db
 
 router = Router()
 
@@ -28,9 +27,10 @@ async def bot_start(message: types.Message, state: FSMContext) -> None:
     user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
     if user_data["sp_uid"]:
         sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
+        keyboard = await create_menu_keyboard(sp_user_data=sp_user_data)
+        subscription_text = "❌ <b>Subscription</b>: <code>None</code>"
         if sp_user_data["subscription"] and sp_user_data["expire"]:
             if datetime.now() < sp_user_data["expire"]:
-                keyboard = await create_menu_keyboard(sp_user_data=sp_user_data)
                 expire_text = datetime.strftime(sp_user_data["expire"],
                                                 "<code>%d</code> <code>%B</code> <code>%Y</code>, <code>%H:%M</code>")
                 if sp_user_data["subscription"] == "admin":
@@ -48,21 +48,6 @@ async def bot_start(message: types.Message, state: FSMContext) -> None:
                 elif sp_user_data["subscription"] == "trial":
                     subscription_text = "🆓 <b>Subscription</b>: <code>Trial</code>\n" \
                                         f"     ├─ 📅 <b>Expire:</b> {expire_text}"
-                else:
-                    keyboard = await create_menu_keyboard()
-                    subscription_text = "❌ BAG BAG BAG (Contact support)!"
-            else:
-                db.sp_users_subscriptions_update_user(conn=db_connect, sp_uid=user_data["sp_uid"],
-                                                      subscription=None, expire=None)
-                sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
-                keyboard = await create_menu_keyboard(sp_user_data=sp_user_data)
-                subscription_text = "❌ <b>Subscription</b>: <code>None</code>"
-        else:
-            db.sp_users_subscriptions_update_user(conn=db_connect, sp_uid=user_data["sp_uid"],
-                                                  subscription=None, expire=None)
-            sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
-            keyboard = await create_menu_keyboard(sp_user_data=sp_user_data)
-            subscription_text = "❌ <b>Subscription</b>: <code>None</code>"
     else:
         keyboard = await create_menu_keyboard()
         subscription_text = "❌ <b>Subscription</b>: <code>None</code>"
@@ -87,7 +72,10 @@ async def buy_subscription(message: types.Message, state: FSMContext) -> None:
     user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
     if user_data["sp_uid"]:
         sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
-        keyboard = await create_subscriptions_keyboard(sp_user_data=sp_user_data)
+        allocated_subs = config_data.get_subs(config=configparser.ConfigParser())
+        subs_count = db.sp_users_get_subs_count(conn=db_connect)
+        keyboard = await create_subscriptions_keyboard(sp_user_data=sp_user_data,
+                                                       allocated_subs=allocated_subs, sub_counts=subs_count)
         await message.answer("💳 Available plans", reply_markup=keyboard)
     else:
         keyboard = await create_menu_keyboard()
