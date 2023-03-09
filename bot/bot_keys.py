@@ -1,4 +1,4 @@
-# Version 1.3.1 release
+# Version 1.4.0 release
 
 import configparser
 import mysql.connector as mysql
@@ -10,9 +10,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.filters.state import State, StatesGroup
 from datetime import datetime, timedelta
 
-from tools import config_data
-from tools import db
 from bot_keyboards import create_menu_keyboard, create_menu_button_keyboard
+from tools import config_data, db
 
 router = Router()
 
@@ -156,7 +155,11 @@ async def key_waiting(message: types.Message, state: FSMContext, bot: Bot) -> No
                 if not sp_user_data["used_trial"]:
                     db.sp_users_subscriptions_update_user(conn=db_connect, sp_uid=user_data["sp_uid"],
                                                           subscription="trial", expire=expire_date.isoformat(),
-                                                          used_trial=True)
+                                                          used_trial=True, is_notified=False)
+                    db.sp_users_configs_update_user(conn=db_connect, sp_uid=user_data["sp_uid"],
+                                                    prog_news=0,
+                                                    scooter_status=0, car_status=0,
+                                                    prog_sleep=5)
                     sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
                     keyboard = await create_menu_keyboard(sp_user_data=sp_user_data)
                     await message.answer("✅ <b>Successfully activated!</b>\n"
@@ -175,10 +178,15 @@ async def key_waiting(message: types.Message, state: FSMContext, bot: Bot) -> No
                     await message.answer("🚫 You have already used the trial period", reply_markup=keyboard)
             else:
                 db.sp_users_subscriptions_update_user(conn=db_connect, sp_uid=user_data["sp_uid"],
-                                                      subscription=key_type, expire=expire_date.isoformat())
+                                                      subscription=key_type, expire=expire_date.isoformat(),
+                                                      is_notified=False)
                 sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
                 keyboard = await create_menu_keyboard(sp_user_data=sp_user_data)
                 if key_type == "standard":
+                    db.sp_users_configs_update_user(conn=db_connect, sp_uid=user_data["sp_uid"],
+                                                    prog_news=0,
+                                                    scooter_status=0, car_status=0,
+                                                    prog_sleep=5)
                     await message.answer("✅ <b>Successfully activated!</b>\n"
                                          f"     ├─ 🔹 <b>Subscription</b>: <code>Standard</code>\n"
                                          f"     ├─ 📅 <b>Days</b>: <code>{key_days}</code>\n"
