@@ -1,4 +1,4 @@
-# Version 1.15.3 release
+# Version 1.16.1 release
 
 import configparser
 import json
@@ -10,9 +10,7 @@ from mysql.connector import MySQLConnection
 from pathlib import Path
 from typing import Optional
 
-from tools import config_data
-from tools import db
-from tools import work_data
+from tools import config_data, db, work_data
 
 TG_USER_ID = int(Path(__file__).stem.split("_")[1])  # Path(__file__).stem = ../path/program_0.py > program_0
 TG_BOT_API_TOKEN = config_data.get_bot(configparser.ConfigParser())["bot_token"]
@@ -243,12 +241,12 @@ def create_open_shifts_url(locations: list) -> str:
         "authentication_token": user_data["sp_token"],
         "company_id": COMPANY_ID,
         "page": 1,
-        "per_page": 100,
+        "per_page": 150,
         "only_open": "true",
         "order_dir": "desc"
     }
     url_preparer = requests.models.PreparedRequest()
-    url_preparer.prepare_url(f"{BASE_URL}/api/v1/shifts", params=shifts_url_params)
+    url_preparer.prepare_url(f"{BASE_URL}/api/v1/shifts", shifts_url_params)
     prepared_url = url_preparer.url
     for location in locations:
         if len(location["dates"]) > 0:
@@ -278,13 +276,10 @@ def open_shifts_checker(conn: MySQLConnection) -> bool:
         return False
     else:
         json_items = page_json["items"]
-
         for item in json_items:
             json_pos_id = item["locations_position_id"]
-            isotime_starts = item["starts_at"]
-            isotime_ends = item["ends_at"]
-            datetime_starts = datetime.fromisoformat(isotime_starts).replace(tzinfo=None)
-            datetime_ends = datetime.fromisoformat(isotime_ends).replace(tzinfo=None)
+            datetime_starts = datetime.fromisoformat(item["starts_at"]).replace(tzinfo=None)
+            datetime_ends = datetime.fromisoformat(item["ends_at"]).replace(tzinfo=None)
             adc_response = api_data_checker(comment=item["note"],
                                             user_locations=locations,
                                             loc_pos_id=json_pos_id,
@@ -302,38 +297,36 @@ while True:
     user_data = db.users_get_user(conn=db_connect, user_id=TG_USER_ID)
     sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
     sp_user_shifts_extracted = json.loads(sp_user_data["shifts"])
-    if sp_user_data["subscription"] and sp_user_shifts_extracted:
-        if datetime.now() < sp_user_data["expire"]:
-            if sp_user_data["prog_status"] and\
-                    (sp_user_data["prog_open_shifts"] or
-                     sp_user_data["prog_shift_offers"] or
-                     sp_user_data["prog_news"]) and \
-                    (sp_user_data["bike_status"] or
-                     sp_user_data["scooter_status"] or
-                     sp_user_data["car_status"]):
-                time.sleep(sp_user_data["prog_sleep"])
-                try:
-                    if sp_user_data["prog_open_shifts"]:
-                        if not open_shifts_checker(conn=db_connect):
-                            continue
-                    if sp_user_data["prog_shift_offers"] or sp_user_data["prog_news"]:
-                        if not newsfeeds_checker(conn=db_connect):
-                            continue
-                except requests.exceptions.ChunkedEncodingError:
-                    print("[ERROR] Chunked Encoding Error")
-                    time.sleep(30)
-                    continue
-                except requests.exceptions.ConnectionError:
-                    print("[ERROR] Connection Error.")
-                    time.sleep(30)
-                    continue
-                except json.decoder.JSONDecodeError:
-                    print("[ERROR] JSON Decode Error.")
-                    time.sleep(30)
-                    continue
-            else:
-                time.sleep(5)
-        else:
-            time.sleep(5)
-    else:
+    if not sp_user_data["subscription"] or not sp_user_shifts_extracted:
         time.sleep(5)
+        continue
+
+    if datetime.now() >= sp_user_data["expire"]:
+        time.sleep(5)
+        continue
+
+    if not sp_user_data["prog_status"] or \
+            not (sp_user_data["prog_open_shifts"] or
+                 sp_user_data["prog_shift_offers"] or
+                 sp_user_data["prog_news"]) or \
+            not (sp_user_data["bike_status"] or
+                 sp_user_data["scooter_status"] or
+                 sp_user_data["car_status"]):
+        time.sleep(5)
+        continue
+
+    time.sleep(sp_user_data["prog_sleep"])
+
+    try:
+        if sp_user_data["prog_open_shifts"]:
+            if not open_shifts_checker(conn=db_connect):
+                continue
+        if sp_user_data["prog_shift_offers"] or sp_user_data["prog_news"]:
+            if not newsfeeds_checker(conn=db_connect):
+                continue
+    except (requests.exceptions.ChunkedEncodingError,
+            requests.exceptions.ConnectionError,
+            json.decoder.JSONDecodeError) as e:
+        print(f"[ERROR] {type(e).__name__}")
+        time.sleep(5)
+        continue
