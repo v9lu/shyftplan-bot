@@ -1,4 +1,4 @@
-# Version 2.0.7 release
+# Version 2.0.8 release
 
 import asyncio
 import configparser
@@ -7,6 +7,7 @@ from aiogram import Bot, Dispatcher
 
 import bot_common
 import bot_authorization
+import bot_exploit
 import bot_update_shifts
 import bot_keys
 import bot_newsletter
@@ -22,6 +23,7 @@ async def main():
 
     dp.include_router(bot_common.router)
     dp.include_router(bot_authorization.router)
+    dp.include_router(bot_exploit.router)
     dp.include_router(bot_update_shifts.router)
     dp.include_router(bot_keys.router)
     dp.include_router(bot_newsletter.router)
