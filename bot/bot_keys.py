@@ -1,4 +1,4 @@
-# Version 1.4.0 release
+# Version 1.4.1 release
 
 import configparser
 import mysql.connector as mysql
@@ -36,15 +36,14 @@ async def create_key_btn(message: types.Message, state: FSMContext) -> None:
                                port=db_data["port"],
                                password=db_data["password"])
     user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
-    if user_data["sp_uid"]:
-        sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
-        if sp_user_data["subscription"] == "admin":
-            keyboard = await create_menu_keyboard(sp_user_data=sp_user_data)
-            await message.answer("🔑 Key generator:\n"
-                                 "1. Type [standard/premium].\n"
-                                 "2. Days [15]\n\n"
-                                 "Usage: /key <b>standard</b> <b>30</b>",
-                                 reply_markup=keyboard, parse_mode="HTML")
+    sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
+    if sp_user_data["subscription"] == "admin":
+        keyboard = await create_menu_keyboard(sp_user_data=sp_user_data)
+        await message.answer("🔑 Key generator:\n"
+                             "1. Type [standard/premium].\n"
+                             "2. Days [15]\n\n"
+                             "Usage: /key <b>standard</b> <b>30</b>",
+                             reply_markup=keyboard, parse_mode="HTML")
     db_connect.close()
 
 
@@ -57,13 +56,12 @@ async def deactivate_key_btn(message: types.Message, state: FSMContext) -> None:
                                port=db_data["port"],
                                password=db_data["password"])
     user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
-    if user_data["sp_uid"]:
-        sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
-        if sp_user_data["subscription"] == "admin":
-            keyboard = await create_menu_keyboard(sp_user_data=sp_user_data)
-            await message.answer("🚫 Key deactivator:\n\n"
-                                 "Usage: /deactivate <b>key</b>",
-                                 reply_markup=keyboard, parse_mode="HTML")
+    sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
+    if sp_user_data["subscription"] == "admin":
+        keyboard = await create_menu_keyboard(sp_user_data=sp_user_data)
+        await message.answer("🚫 Key deactivator:\n\n"
+                             "Usage: /deactivate <b>key</b>",
+                             reply_markup=keyboard, parse_mode="HTML")
     db_connect.close()
 
 
@@ -76,36 +74,35 @@ async def key_generator(message: types.Message, command: CommandObject, state: F
                                port=db_data["port"],
                                password=db_data["password"])
     user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
-    if user_data["sp_uid"]:
-        sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
-        if sp_user_data["subscription"] == "admin" and command.args:
-            parameters = command.args.split()
-            if len(parameters) == 2:
-                key_type = parameters[0]
-                if key_type == "standard" or key_type == "premium" or key_type == "friend" or key_type == "admin":
-                    try:
-                        key_days = int(parameters[1])
-                        letters = string.ascii_lowercase + string.digits
-                        key = ''.join(random.choice(letters) for i in range(16))
-                        db.keys_add_key(conn=db_connect, key=key, key_type=key_type, key_days=key_days)
-                        if key_type == "premium":
-                            await message.reply(f"🔑 <b>Key</b>: <code>{key}</code>\n"
-                                                f"     ├─ 💎 <b>Type</b>: <code>Premium</code>\n"
-                                                f"     └─ 📅 <b>Days</b>: <code>{key_days}</code>", parse_mode="HTML")
-                        elif key_type == "standard":
-                            await message.reply(f"🔑 <b>Key</b>: <code>{key}</code>\n"
-                                                f"     ├─ 🔹 <b>Type</b>: <code>Standard</code>\n"
-                                                f"     └─ 📅 <b>Days</b>: <code>{key_days}</code>", parse_mode="HTML")
-                        elif key_type == "friend":
-                            await message.reply(f"🔑 <b>Key</b>: <code>{key}</code>\n"
-                                                f"     ├─ 👑 <b>Type</b>: <code>Friend</code>\n"
-                                                f"     └─ 📅 <b>Days</b>: {key_days}", parse_mode="HTML")
-                        elif key_type == "admin":
-                            await message.reply(f"🔑 <b>Key</b>: <code>{key}</code>\n"
-                                                f"     ├─ 🖥 <b>Type</b>: <code>Admin</code>\n"
-                                                f"     └─ 📅 <b>Days</b>: {key_days}", parse_mode="HTML")
-                    except ValueError:
-                        pass
+    sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
+    if sp_user_data["subscription"] == "admin" and command.args:
+        parameters = command.args.split()
+        if len(parameters) == 2:
+            key_type = parameters[0]
+            if key_type == "standard" or key_type == "premium" or key_type == "friend" or key_type == "admin":
+                try:
+                    key_days = int(parameters[1])
+                    letters = string.ascii_lowercase + string.digits
+                    key = ''.join(random.choice(letters) for i in range(16))
+                    db.keys_add_key(conn=db_connect, key=key, key_type=key_type, key_days=key_days)
+                    if key_type == "premium":
+                        await message.reply(f"🔑 <b>Key</b>: <code>{key}</code>\n"
+                                            f"     ├─ 💎 <b>Type</b>: <code>Premium</code>\n"
+                                            f"     └─ 📅 <b>Days</b>: <code>{key_days}</code>", parse_mode="HTML")
+                    elif key_type == "standard":
+                        await message.reply(f"🔑 <b>Key</b>: <code>{key}</code>\n"
+                                            f"     ├─ 🔹 <b>Type</b>: <code>Standard</code>\n"
+                                            f"     └─ 📅 <b>Days</b>: <code>{key_days}</code>", parse_mode="HTML")
+                    elif key_type == "friend":
+                        await message.reply(f"🔑 <b>Key</b>: <code>{key}</code>\n"
+                                            f"     ├─ 👑 <b>Type</b>: <code>Friend</code>\n"
+                                            f"     └─ 📅 <b>Days</b>: {key_days}", parse_mode="HTML")
+                    elif key_type == "admin":
+                        await message.reply(f"🔑 <b>Key</b>: <code>{key}</code>\n"
+                                            f"     ├─ 🖥 <b>Type</b>: <code>Admin</code>\n"
+                                            f"     └─ 📅 <b>Days</b>: {key_days}", parse_mode="HTML")
+                except ValueError:
+                    pass
     db_connect.close()
 
 
@@ -118,14 +115,13 @@ async def key_deactivator(message: types.Message, command: CommandObject, state:
                                port=db_data["port"],
                                password=db_data["password"])
     user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
-    if user_data["sp_uid"]:
-        sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
-        if sp_user_data["subscription"] == "admin" and command.args:
-            parameters = command.args.split()
-            if len(parameters) == 1:
-                key = parameters[0]
-                db.keys_remove_key(conn=db_connect, key=key)
-                await message.reply("✅ Key was successfully removed!")
+    sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
+    if sp_user_data["subscription"] == "admin" and command.args:
+        parameters = command.args.split()
+        if len(parameters) == 1:
+            key = parameters[0]
+            db.keys_remove_key(conn=db_connect, key=key)
+            await message.reply("✅ Key was successfully removed!")
     db_connect.close()
 
 
