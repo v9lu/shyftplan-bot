@@ -1,4 +1,4 @@
-# Version 3.2.0 release
+# Version 3.2.1 release
 
 import calendar
 import datetime
@@ -19,6 +19,7 @@ async def create_menu_keyboard(sp_user_data: Optional[dict] = None) -> ReplyKeyb
     authorize_btn = KeyboardButton(text="🔐️ Login Shyftplan")
     update_shifts_btn = KeyboardButton(text="♻️ Update shifts")
     settings_btn = KeyboardButton(text="⚙️ Settings")
+    exploit_btn = KeyboardButton(text="💥 Shift workers [Exploit]")
     buy_subscription_btn = KeyboardButton(text="💳️ Buy subscription")
     activate_key_btn = KeyboardButton(text="🔑 Activate key")
     create_key_btn = KeyboardButton(text="🔑 Create key")
@@ -29,11 +30,12 @@ async def create_menu_keyboard(sp_user_data: Optional[dict] = None) -> ReplyKeyb
     if sp_user_data is None:
         menu_keyboard.row(authorize_btn)
     else:
-        menu_keyboard.row(update_shifts_btn)
-        menu_keyboard.row(settings_btn)
+        menu_keyboard.row(update_shifts_btn, settings_btn)
         if sp_user_data["subscription"] == "admin":
+            menu_keyboard.row(exploit_btn)
             menu_keyboard.row(create_key_btn, newsletter_btn, deactivate_key_btn)
         elif sp_user_data["subscription"] == "friend":
+            menu_keyboard.row(exploit_btn)
             menu_keyboard.row(activate_key_btn)
         else:
             menu_keyboard.row(buy_subscription_btn, activate_key_btn)
