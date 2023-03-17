@@ -259,7 +259,8 @@ def notificator() -> None:
                         f"✅ <b>New shift booked!</b>\n"
                         f"<b>DS:</b> {location['fullname']}\n"
                         f"<b>Start:</b> {date_start_str} <b>at</b> {time_start_str}\n"
-                        f"<b>End:</b> {date_end_str} <b>at</b> {time_end_str}")
+                        f"<b>End:</b> {date_end_str} <b>at</b> {time_end_str}"
+                        f"&parse_mode=HTML")
 
 
 # MAIN SCRIPT #
