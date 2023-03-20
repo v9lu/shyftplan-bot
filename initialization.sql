@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS sp_users_configs (
     scooter_status BOOL NOT NULL DEFAULT 0,
     car_status BOOL NOT NULL DEFAULT 0,
     prog_sleep FLOAT(3, 2) NOT NULL DEFAULT 5,
+    prog_cutoff_time TINYINT NOT NULL DEFAULT 1,
     shifts MEDIUMTEXT NOT NULL DEFAULT "[]"
 );
 
@@ -49,7 +50,8 @@ CREATE TABLE IF NOT EXISTS users_auth (
     sp_email TINYTEXT DEFAULT NULL,
     sp_token TINYTEXT DEFAULT NULL,
     sp_eid INT DEFAULT NULL,
-    sp_uid INT DEFAULT NULL
+    sp_uid INT DEFAULT NULL,
+    trusted BOOL DEFAULT NULL
 );
 
 CREATE TABLE IF NOT EXISTS users_statistics (
