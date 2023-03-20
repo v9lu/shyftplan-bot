@@ -1,9 +1,8 @@
-# Version 2.3.4 release
+# Version 2.4.0 release
 
+import aiohttp
 import configparser
-import json
 import mysql.connector as mysql
-import requests
 from aiogram import Router, types
 from aiogram.filters import Command, Text
 from aiogram.filters.state import State, StatesGroup
@@ -23,35 +22,55 @@ class Authorization(StatesGroup):
     waiting_for_password = State()
 
 
-async def authorization(conn: MySQLConnection, user_id: int, email: str, password: str = None,
-                        token: str = None) -> bool:
-    if token:
-        response = requests.get("https://shyftplan.com/api/v1/employments/my",
-                                params={"user_email": email,
-                                        "authentication_token": token})
-        if "error" not in response.text:
-            return True
-        else:
-            return False
-    elif password:
-        response = requests.post("https://shyftplan.com/api/v1/login",
-                                 data={"user[email]": email,
-                                       "user[password]": password})
-        json_items = json.loads(response.text)
-        if "authentication_token" in json_items:
-            token = json_items["authentication_token"]
-            response = requests.get("https://shyftplan.com/api/v1/employments/my",
-                                    params={"user_email": email,
-                                            "authentication_token": token})
-            json_items = json.loads(response.text)
-            sp_eid = json_items["items"][0]["id"]
-            sp_uid = json_items["items"][0]["user_id"]
-            db.users_auth_update_user(conn=conn, user_id=user_id,
-                                      sp_email=email, sp_token=token, sp_eid=sp_eid, sp_uid=sp_uid)
-            db.sp_users_add_user(conn=conn, sp_uid=sp_uid)
-            return True
-        else:
-            return False
+async def authorization(conn: MySQLConnection, user_id: int,
+                        email: str, password: str = None, token: str = None) -> bool:
+    async with aiohttp.ClientSession() as session:
+        if token:
+            async with session.get("https://shyftplan.com/api/v1/employments/my",
+                                   params={"user_email": email,
+                                           "authentication_token": token}
+                                   ) as response:
+                if response.status == 200:
+                    return True
+                else:
+                    return False
+        elif password:
+            async with session.post("https://shyftplan.com/api/v1/login",
+                                    data={"user[email]": email,
+                                          "user[password]": password}
+                                    ) as response:
+                json_response = await response.json()
+            if response.status == 201:
+                token = json_response["authentication_token"]
+                params = {
+                    "user_email": email,
+                    "authentication_token": token
+                }
+                async with session.get("https://shyftplan.com/api/v1/employments/my", params=params) as response:
+                    json_response = await response.json()
+                sp_eid = json_response["items"][0]["id"]
+                sp_uid = json_response["items"][0]["user_id"]
+                trusted_position_id = 145325
+                params["id"] = trusted_position_id
+                async with session.get("https://shyftplan.com/api/v1/positions", params=params) as response:
+                    json_response = await response.json()
+                if len(json_response["items"]):
+                    is_trusted = True
+                else:
+                    is_trusted = False
+                db.users_auth_update_user(
+                    conn=conn,
+                    user_id=user_id,
+                    sp_email=email,
+                    sp_token=token,
+                    sp_eid=sp_eid,
+                    sp_uid=sp_uid,
+                    trusted=is_trusted
+                )
+                db.sp_users_add_user(conn=conn, sp_uid=sp_uid)
+                return True
+            else:
+                return False
 
 
 @router.message(Command(commands=["auth"]))
