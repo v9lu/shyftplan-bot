@@ -1,4 +1,4 @@
-# Version 3.2.1 release
+# Version 3.3.0 release
 
 import calendar
 import datetime
@@ -66,11 +66,42 @@ async def create_subscriptions_keyboard(sp_user_data: dict, allocated_subs: dict
     return subscriptions_keyboard.as_markup(resize_keyboard=True)
 
 
+async def create_cutoff_times_keyboard(sp_user_data: dict) -> InlineKeyboardMarkup:
+    cutoff_times = {
+        4: ("4 hours", "set_cutoff_4"),
+        3: ("3 hours", "set_cutoff_3"),
+        2: ("2 hours", "set_cutoff_2"),
+        1: ("1 hour", "set_cutoff_1"),
+        30: ("30 minutes", "set_cutoff_30"),
+        0: ("Without Cut-Off", "set_cutoff_0")
+    }
+
+    rows = [[] for _ in range(4)]
+
+    for cutoff_time, (text, callback_data) in cutoff_times.items():
+        if sp_user_data["prog_cutoff_time"] == cutoff_time:
+            text = "🔥 " + text
+        if cutoff_time in [4, 3]:
+            rows[0].append(InlineKeyboardButton(text=text, callback_data=callback_data))
+        elif cutoff_time in [2, 1]:
+            rows[1].append(InlineKeyboardButton(text=text, callback_data=callback_data))
+        elif cutoff_time == 30:
+            rows[2].append(InlineKeyboardButton(text=text, callback_data=callback_data))
+        else:
+            rows[3].append(InlineKeyboardButton(text=text, callback_data=callback_data))
+
+    cutoff_times_keyboard = InlineKeyboardBuilder()
+    for row in rows:
+        cutoff_times_keyboard.row(*row)
+    return cutoff_times_keyboard.as_markup()
+
+
 async def create_settings_keyboard(sp_user_data: dict) -> InlineKeyboardMarkup:
     status_template = "{emoji} Status"
     prog_statuses_template = ["{emoji} Open Shifts", "{emoji} Shift Offers", "{emoji} News"]
     transport_statuses_template = ["{emoji} Bike", "{emoji} Scooter", "{emoji} Car"]
     speed_template = "{emoji} Check Speed"
+    cutoff_time_template = "{emoji} Cut-Off Time"
 
     if sp_user_data["prog_status"]:
         status_template = status_template.format(emoji="✅")
@@ -100,6 +131,13 @@ async def create_settings_keyboard(sp_user_data: dict) -> InlineKeyboardMarkup:
     else:
         raise Exception("sleeptime must be 0.3 or 1.0 or 5.0")  # Другого значения быть не может
 
+    if not sp_user_data["prog_cutoff_time"]:
+        cutoff_time_template = "🧯 Without Cut-Off"
+    elif sp_user_data["prog_cutoff_time"] == 30:
+        cutoff_time_template = cutoff_time_template.format(emoji="🔥 (30 minutes)")
+    else:
+        cutoff_time_template = cutoff_time_template.format(emoji=f"🔥 ({sp_user_data['prog_cutoff_time']} hours)")
+
     settings_keyboard = InlineKeyboardBuilder()
     status_btn = InlineKeyboardButton(text=status_template, callback_data="prog_status")
     open_shifts_status_btn = InlineKeyboardButton(text=prog_statuses_template[0], callback_data="prog_open_shifts")
@@ -109,10 +147,12 @@ async def create_settings_keyboard(sp_user_data: dict) -> InlineKeyboardMarkup:
     scooter_status_btn = InlineKeyboardButton(text=transport_statuses_template[1], callback_data="scooter_status")
     car_status_btn = InlineKeyboardButton(text=transport_statuses_template[2], callback_data="car_status")
     speed_btn = InlineKeyboardButton(text=speed_template, callback_data="prog_sleep")
+    cutoff_time_btn = InlineKeyboardButton(text=cutoff_time_template, callback_data="prog_cutoff_time")
     settings_keyboard.row(status_btn)
     settings_keyboard.row(open_shifts_status_btn, shift_offers_status_btn, news_status_btn)
     settings_keyboard.row(bike_status_btn, scooter_status_btn, car_status_btn)
     settings_keyboard.row(speed_btn)
+    settings_keyboard.row(cutoff_time_btn)
     return settings_keyboard.as_markup()
 
 
@@ -277,7 +317,6 @@ async def create_hours_keyboard(user_shifts: str, ds_name: str, year: str, month
 
     hours_keyboard = InlineKeyboardBuilder()
     hours_keyboard.row(*keyboard_buttons, width=3)
-
     hours_keyboard.row(InlineKeyboardButton(text="🟩️ Select all", callback_data="select_all"),
                        InlineKeyboardButton(text="🟥️ Deselect all", callback_data="deselect_all"))
     hours_keyboard.row(InlineKeyboardButton(text="◀️ Back to days", callback_data="step_back"))
