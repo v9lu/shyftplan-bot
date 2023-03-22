@@ -1,4 +1,4 @@
-# Version 2.4.0 release
+# Version 2.4.1 release
 
 from mysql.connector import MySQLConnection
 
@@ -121,8 +121,9 @@ def users_get_user(conn: MySQLConnection, user_id: int) -> dict:
     if conn.database != "users_db":
         conn.connect(database="users_db")
     with conn.cursor(dictionary=True) as cursor:
-        cursor.execute("SELECT * FROM users_auth, users_statistics "
-                       "WHERE users_auth.user_id=%s AND users_statistics.user_id=%s", (user_id, user_id))
+        cursor.execute("SELECT * FROM users_auth JOIN users_statistics "
+                       "ON users_auth.user_id = users_statistics.user_id "
+                       "WHERE users_auth.user_id=%s", (user_id,))
         user_data = cursor.fetchone()
     return user_data
 
