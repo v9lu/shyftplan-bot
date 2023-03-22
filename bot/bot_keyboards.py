@@ -1,4 +1,4 @@
-# Version 3.3.0 release
+# Version 3.3.1 release
 
 import calendar
 import datetime
@@ -135,6 +135,8 @@ async def create_settings_keyboard(sp_user_data: dict) -> InlineKeyboardMarkup:
         cutoff_time_template = "🧯 Without Cut-Off"
     elif sp_user_data["prog_cutoff_time"] == 30:
         cutoff_time_template = cutoff_time_template.format(emoji="🔥 (30 minutes)")
+    elif sp_user_data["prog_cutoff_time"] == 1:
+        cutoff_time_template = cutoff_time_template.format(emoji=f"🔥 ({sp_user_data['prog_cutoff_time']} hour)")
     else:
         cutoff_time_template = cutoff_time_template.format(emoji=f"🔥 ({sp_user_data['prog_cutoff_time']} hours)")
 
