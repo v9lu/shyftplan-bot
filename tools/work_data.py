@@ -1,4 +1,4 @@
-# Version 1.6.0 release
+# Version 1.7.0 release
 
 import copy
 import json
@@ -143,13 +143,35 @@ def converter(conn: MySQLConnection, sp_uid: int, today: datetime) -> list:
             if shift_location == locations[index]["name"]:
                 shift_date_str = shift_components[1]
                 shift_hours: list = shift_components[2:]
-                for hours_couple in shift_hours:  # ["name", "date", "15:00-19:00"] > ["15:00-19:00"]
-                    starts_ends_time = hours_couple.split("-")  # 15:00-19:00 > ["15:00", "19:00"]
-                    starts_time = starts_ends_time[0]
-                    ends_time = starts_ends_time[1]
-                    dt_starts = datetime.strptime(shift_date_str + starts_time, '%d.%m.%Y%H:%M')
-                    dt_ends = datetime.strptime(shift_date_str + ends_time, '%d.%m.%Y%H:%M')
-                    if ends_time == "00:00" or ends_time == "00:30":
+                for hours_couple in shift_hours:
+                    starts_time, ends_time = hours_couple.split("-")
+                    dt_starts = datetime.strptime(f"{shift_date_str}{starts_time}", '%d.%m.%Y%H:%M')
+                    dt_ends = datetime.strptime(f"{shift_date_str}{ends_time}", '%d.%m.%Y%H:%M')
+                    if ends_time in ["00:00", "00:30"]:
+                        dt_ends += timedelta(days=1)
+                    locations[index]["dates"].append((dt_starts, dt_ends))
+    return locations
+
+
+def easy_converter(shifts: str) -> list:
+    locations = copy.deepcopy(locations_sample)
+
+    # READ SHIFTS
+    shifts = json.loads(shifts) if shifts else []
+
+    # WORK WITH LOCATIONS LIST
+    for index in range(len(locations)):
+        for shift in shifts:
+            shift_components = shift.split("/")  # "name/date/15-19" > ["name", "date", "15:00-19:00"]
+            shift_location = shift_components[0]
+            if shift_location == locations[index]["name"]:
+                shift_date_str = shift_components[1]
+                shift_hours: list = shift_components[2:]
+                for hours_couple in shift_hours:
+                    starts_time, ends_time = hours_couple.split("-")
+                    dt_starts = datetime.strptime(f"{shift_date_str}{starts_time}", '%d.%m.%Y%H:%M')
+                    dt_ends = datetime.strptime(f"{shift_date_str}{ends_time}", '%d.%m.%Y%H:%M')
+                    if ends_time in ["00:00", "00:30"]:
                         dt_ends += timedelta(days=1)
                     locations[index]["dates"].append((dt_starts, dt_ends))
     return locations
