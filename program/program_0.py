@@ -1,4 +1,4 @@
-# Version 1.18.0 release
+# Version 1.19.0 release
 
 import configparser
 import json
@@ -26,13 +26,17 @@ requests.post(f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_
               f"&parse_mode=HTML")
 
 
-def api_data_checker(comment: Optional[str], user_locations: list, loc_pos_id: int, datetimes: tuple) -> list:
-    for location in user_locations:
-        if (loc_pos_id in location["ids"]["car"] and SP_USER_DATA["car_status"]) or \
-           (loc_pos_id in location["ids"]["scooter"] and SP_USER_DATA["scooter_status"]) or \
-           (loc_pos_id in location["ids"]["bike"] and SP_USER_DATA["scooter_status"] and "skuterze" in comment) or \
-           (loc_pos_id in location["ids"]["bike"] and SP_USER_DATA["bike_status"] and "skuterze" not in comment):
-            if datetimes in location["dates"]:
+def api_data_checker(sp_user_data: dict,
+                     sp_user_locations: list,
+                     shift_comment: Optional[str],
+                     shift_loc_pos_id: int,
+                     shift_time_range: tuple) -> list:
+    for location in sp_user_locations:
+        if (shift_loc_pos_id in location["ids"]["car"] and sp_user_data["car_status"]) or \
+           (shift_loc_pos_id in location["ids"]["scooter"] and sp_user_data["scooter_status"]) or \
+           (shift_loc_pos_id in location["ids"]["bike"] and sp_user_data["scooter_status"] and "skuterze" in shift_comment) or \
+           (shift_loc_pos_id in location["ids"]["bike"] and sp_user_data["bike_status"] and "skuterze" not in shift_comment):
+            if shift_time_range in location["dates"]:
                 return [True, location]
             else:
                 return [False, None]
@@ -40,57 +44,187 @@ def api_data_checker(comment: Optional[str], user_locations: list, loc_pos_id: i
         return [False, None]
 
 
-# def can_be_shifted() -> bool:
-#     trusted_position_id = 145325
-#     response = requests.get(f"{BASE_URL}/api/v1/positions",
-#                             params={"user_email": USER_DATA["sp_email"],
-#                                     "authentication_token": USER_DATA["sp_token"],
-#                                     "id": trusted_position_id})
-#     json_response = response.json()
-#     if len(json_response["items"]):
-#         is_trusted = True
-#     else:
-#         is_trusted = False
-#
-#     if USER_DATA["trusted"] != is_trusted:
-#         db.users_auth_update_user(conn=DB_CONNECT, user_id=TG_USER_ID, trusted=is_trusted)
-#     #
-#     # if SP_USER_DATA["subscription"] == "admin":
-#     #     return True
-#     # elif SP_USER_DATA["subscription"] == "friend":
+def can_be_shifted(shift_id: int,
+                   shift_from_news: bool,
+                   shift_comment: Optional[str],
+                   shift_loc_pos_id: int,
+                   shift_time_range: tuple,
+                   trusted_shift: bool) -> bool:
+    def highers_without_this_shift(my_subscription: str):
+        higher_subscriptions = {
+            "friend": ["admin"],
+            "premium": ["admin", "friend"],
+            "standard": ["admin", "friend", "premium"],
+            "trial": ["admin", "friend", "premium", "standard"]
+        }
+
+        if DB_CONNECT.database != "users_db":
+            DB_CONNECT.connect(database="users_db")
+        with DB_CONNECT.cursor(dictionary=True) as cursor:
+            if trusted_shift:
+                cursor.execute("SELECT * FROM users_auth WHERE sp_uid IS NOT NULL AND trusted=1")
+                suitable_users_data = cursor.fetchall()
+            else:
+                cursor.execute("SELECT * FROM users_auth WHERE sp_uid IS NOT NULL")
+                suitable_users_data = cursor.fetchall()
+        if suitable_users_data:
+            suitable_users_sp_uids = [suitable_user_data["sp_uid"] for suitable_user_data in suitable_users_data]
+
+            if DB_CONNECT.database != "sp_users_db":
+                DB_CONNECT.connect(database="sp_users_db")
+            with DB_CONNECT.cursor(dictionary=True) as cursor:
+                if shift_from_news:
+                    shared_query = "AND sp_users_configs.prog_shift_offers=1 "
+                else:
+                    shared_query = "AND sp_users_configs.prog_open_shifts=1 "
+                cursor.execute("SELECT sp_users_configs.*, sp_users_subscriptions.subscription "
+                               "FROM sp_users_configs "
+                               "JOIN sp_users_subscriptions "
+                               "ON sp_users_configs.sp_uid = sp_users_subscriptions.sp_uid "
+                               f"WHERE sp_users_configs.sp_uid IN ({','.join(['%s'] * len(suitable_users_sp_uids))}) "
+                               "AND sp_users_configs.prog_status=1 "
+                               f"{shared_query}"
+                               "AND sp_users_configs.shifts != '[]' "
+                               "AND sp_users_subscriptions.subscription "
+                               f"IN ({','.join(['%s'] * len(higher_subscriptions[my_subscription]))}) "
+                               "AND sp_users_subscriptions.expire > NOW()",
+                               tuple(suitable_users_sp_uids) + tuple(higher_subscriptions[my_subscription]))
+                suitable_sp_users_data = cursor.fetchall()
+            if suitable_sp_users_data:
+                suitable_sp_users_with_shifts_data = []
+                for suitable_sp_user_data in suitable_sp_users_data:
+                    suitable_sp_user_locations = work_data.easy_converter(shifts=suitable_sp_user_data["shifts"])
+                    adc_response = api_data_checker(sp_user_data=suitable_sp_user_data,
+                                                    sp_user_locations=suitable_sp_user_locations,
+                                                    shift_comment=shift_comment,
+                                                    shift_loc_pos_id=shift_loc_pos_id,
+                                                    shift_time_range=shift_time_range)
+                    if adc_response[0]:
+                        shift_starts_at = shift_time_range[0]
+                        # Соседние смены всех не проверяем - потому что это не рационально
+                        if suitable_sp_user_data["prog_cutoff_time"] == 30:
+                            if datetime.now() + timedelta(minutes=30) > shift_starts_at:
+                                continue
+                        else:
+                            if datetime.now() + timedelta(hours=suitable_sp_user_data["prog_cutoff_time"]) > shift_starts_at:
+                                continue
+                        suitable_sp_users_with_shifts_data.append(suitable_sp_user_data)
+                if suitable_sp_users_with_shifts_data:
+                    if shift_from_news:
+                        return False
+                    else:
+                        response = requests.get(f"{BASE_URL}/api/v1/shifts/{shift_id}",
+                                                params={"user_email": USER_DATA["sp_email"],
+                                                        "authentication_token": USER_DATA["sp_token"]})
+                        json_response = response.json()
+                        if len(suitable_sp_users_with_shifts_data) >= json_response["workers"]:
+                            return False
+                        else:
+                            return True
+                else:
+                    return True
+            else:
+                return True
+        else:
+            return True
+
+    trusted_position_id = 145325
+    response = requests.get(f"{BASE_URL}/api/v1/positions/{trusted_position_id}",
+                            params={"user_email": USER_DATA["sp_email"],
+                                    "authentication_token": USER_DATA["sp_token"]})
+    json_response = response.json()
+    if json_response:
+        is_trusted = True
+    else:
+        is_trusted = False
+    if USER_DATA["trusted"] != is_trusted:
+        db.users_auth_update_user(conn=DB_CONNECT, user_id=TG_USER_ID, trusted=is_trusted)
+
+    if SP_USER_DATA["subscription"] == "admin":
+        return True
+    else:
+        if highers_without_this_shift(my_subscription=SP_USER_DATA["subscription"]):
+            return True
+        else:
+            return False
 
 
-def join_or_accept_shift(shift_id: int, user_location: dict,
-                         request_type: str, time_range: tuple) -> None:
+def join_or_accept_shift(shift_id: int,
+                         shift_comment: Optional[str],
+                         shift_loc_pos_id: int,
+                         shift_time_range: tuple,
+                         user_location: dict,
+                         request_type: str,) -> None:
+    timezone = pytz.timezone("Europe/Warsaw")
+    shift_starts_at = timezone.localize(shift_time_range[0])
+    response = requests.get(f"{BASE_URL}/api/v1/evaluations",
+                            params={"user_email": USER_DATA["sp_email"],
+                                    "authentication_token": USER_DATA["sp_token"],
+                                    "page": 1,
+                                    "per_page": 1,
+                                    "starts_at": (shift_starts_at - timedelta(hours=4)).isoformat(),
+                                    "ends_at": shift_starts_at.isoformat(),
+                                    "state": "no_evaluation",
+                                    "employment_id": USER_DATA["sp_eid"]})
+    json_response = response.json()
+    if len(json_response["items"]) > 0:  # Если уже что-то забронированно между часами
+        evaluation_ends_at_iso = datetime.fromisoformat(json_response["items"][0]["evaluation_ends_at"])
+        parent_shift = (shift_starts_at == evaluation_ends_at_iso)
+    else:
+        parent_shift = False
+
+    if not parent_shift:
+        if SP_USER_DATA["prog_cutoff_time"] == 30:
+            if datetime.now() + timedelta(minutes=30) > shift_starts_at.replace(tzinfo=None):
+                return
+        else:
+            if datetime.now() + timedelta(hours=SP_USER_DATA["prog_cutoff_time"]) > shift_starts_at.replace(tzinfo=None):
+                return
+
+    response = requests.get(f"{BASE_URL}/api/v1/locations_positions/{shift_loc_pos_id}",
+                            params={"user_email": USER_DATA["sp_email"],
+                                    "authentication_token": USER_DATA["sp_token"]})
+    json_response = response.json()
+    if "Zaufany" in json_response["position_name"]:
+        trusted_shift = True
+    else:
+        trusted_shift = False
+
     if request_type == "join":
-        response = requests.post(f"{BASE_URL}/api/v1/requests/join", params={
-            "user_email": USER_DATA["sp_email"],
-            "authentication_token": USER_DATA["sp_token"],
-            "company_id": COMPANY_ID,
-            "shift_id": shift_id
-        })
-        json_response = json.loads(response.text)
-        if "conflicts" in json_response:
-            date_start_str = time_range[0].strftime("%d.%m.%Y")
-            date_end_str = time_range[1].strftime("%d.%m.%Y")
-            time_start_str = time_range[0].strftime("%H:%M")
-            time_end_str = time_range[1].strftime("%H:%M")
-            day_string = f"{user_location['name']}/{date_start_str}/{time_start_str}-{time_end_str}"
-            work_data.remove_days(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"], days=day_string)
-            requests.post(f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_USER_ID}&text="
-                          f"📕 <b>Shift was removed from your list:</b>\n"
-                          f"<b>DS:</b> {user_location['fullname']}\n"
-                          f"<b>Start:</b> {date_start_str} at {time_start_str}\n"
-                          f"<b>End:</b> {date_end_str} at {time_end_str}\n"
-                          f"<b>Info:</b> You already have a shift at the same time"
-                          f"&parse_mode=HTML")
+        if can_be_shifted(shift_id=shift_id, shift_from_news=False, shift_comment=shift_comment,
+                          shift_time_range=shift_time_range, shift_loc_pos_id=shift_loc_pos_id,
+                          trusted_shift=trusted_shift):
+            response = requests.post(f"{BASE_URL}/api/v1/requests/join", params={
+                "user_email": USER_DATA["sp_email"],
+                "authentication_token": USER_DATA["sp_token"],
+                "company_id": COMPANY_ID,
+                "shift_id": shift_id
+            })
+            json_response = json.loads(response.text)
+            if "conflicts" in json_response:
+                date_start_str = shift_time_range[0].strftime("%d.%m.%Y")
+                date_end_str = shift_time_range[1].strftime("%d.%m.%Y")
+                time_start_str = shift_time_range[0].strftime("%H:%M")
+                time_end_str = shift_time_range[1].strftime("%H:%M")
+                day_string = f"{user_location['name']}/{date_start_str}/{time_start_str}-{time_end_str}"
+                work_data.remove_days(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"], days=day_string)
+                requests.post(f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_USER_ID}&text="
+                              f"📕 <b>Shift was removed from your list:</b>\n"
+                              f"<b>DS:</b> {user_location['fullname']}\n"
+                              f"<b>Start:</b> {date_start_str} at {time_start_str}\n"
+                              f"<b>End:</b> {date_end_str} at {time_end_str}\n"
+                              f"<b>Info:</b> You already have a shift at the same time"
+                              f"&parse_mode=HTML")
     elif request_type == "replace":
-        requests.post(f"{BASE_URL}/api/v1/requests/replace/accept",
-                      params={"user_email": USER_DATA["sp_email"],
-                              "authentication_token": USER_DATA["sp_token"],
-                              "company_id": COMPANY_ID,
-                              "id": shift_id,
-                              "ignore_conflicts": "false"})
+        if can_be_shifted(shift_id=shift_id, shift_from_news=True, shift_comment=shift_comment,
+                          shift_time_range=shift_time_range, shift_loc_pos_id=shift_loc_pos_id,
+                          trusted_shift=trusted_shift):
+            requests.post(f"{BASE_URL}/api/v1/requests/replace/accept",
+                          params={"user_email": USER_DATA["sp_email"],
+                                  "authentication_token": USER_DATA["sp_token"],
+                                  "company_id": COMPANY_ID,
+                                  "id": shift_id,
+                                  "ignore_conflicts": "false"})
 
 
 def newsfeeds_checker() -> bool:
@@ -101,23 +235,22 @@ def newsfeeds_checker() -> bool:
                                     "company_id": COMPANY_ID,
                                     "page": 1,
                                     "per_page": 1})
-    page_json = response.json()
-    if 'error' in page_json:
-        if page_json["error"] == "401 Unauthorized":
-            db.users_auth_update_user(conn=DB_CONNECT, user_id=TG_USER_ID,
-                                      sp_email=None, sp_token=None)
-            db.sp_users_configs_update_user(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"],
-                                            prog_status=False)
-            requests.post(f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_USER_ID}&text="
-                          f"⛔ Auto-shifting was stopped because your data is outdated, "
-                          f"use command /auth to authorize again.")
+    if response.status_code == 401:  # login data is outdated
+        db.users_auth_update_user(conn=DB_CONNECT, user_id=TG_USER_ID,
+                                  sp_email=None, sp_token=None)
+        db.sp_users_configs_update_user(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"],
+                                        prog_status=False)
+        requests.post(f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_USER_ID}&text="
+                      f"⛔ Auto-shifting was stopped because your data is outdated, "
+                      f"use command /auth to authorize again.")
         return False
     else:
-        json_items = page_json["items"][0]
+        json_response = response.json()
+        json_items = json_response["items"][0]
         is_old = db.newsfeeds_is_old_id(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"], newsfeed_id=json_items["id"])
         if not is_old:
             if json_items["key"] == "request.swap_request" and SP_USER_DATA["prog_shift_offers"]:
-                loc_pos_id: int = json_items["metadata"]["locations_position_ids"][0]
+                shift_loc_pos_id: int = json_items["metadata"]["locations_position_ids"][0]
                 try:
                     shift_id: int = json_items["objekt"]["shift"]["id"]
                 except KeyError:
@@ -133,46 +266,21 @@ def newsfeeds_checker() -> bool:
                 response = requests.get(f"{BASE_URL}/api/v1/shifts/{shift_id}",
                                         params={"user_email": USER_DATA["sp_email"],
                                                 "authentication_token": USER_DATA["sp_token"]})
-                comment = json.loads(response.text)["note"]
-                adc_response = api_data_checker(comment=comment,
-                                                user_locations=locations,
-                                                loc_pos_id=loc_pos_id,
-                                                datetimes=(shift_starts_at, shift_ends_at))
+                shift_comment = json.loads(response.text)["note"]
+                adc_response = api_data_checker(sp_user_data=SP_USER_DATA,
+                                                sp_user_locations=locations,
+                                                shift_comment=shift_comment,
+                                                shift_loc_pos_id=shift_loc_pos_id,
+                                                shift_time_range=(shift_starts_at, shift_ends_at))
                 adc_response_code = adc_response[0]
                 adc_response_loc = adc_response[1]
                 if adc_response_code:
-                    response = requests.get(f"{BASE_URL}/api/v1/evaluations",
-                                            params={"user_email": USER_DATA["sp_email"],
-                                                    "authentication_token": USER_DATA["sp_token"],
-                                                    "page": 1,
-                                                    "per_page": 1,
-                                                    "starts_at": (shift_starts_at - timedelta(hours=4)).isoformat(),
-                                                    "ends_at": shift_ends_at_iso,
-                                                    "state": "no_evaluation",
-                                                    "employment_id": USER_DATA["sp_eid"]})
-                    page_json = response.json()
-                    if len(page_json["items"]) > 0:  # Если уже что-то забронированно между часами
-                        evaluation_ends_at = page_json["items"][0]["evaluation_ends_at"]
-                        if evaluation_ends_at == shift_starts_at_iso or \
-                                datetime.now() + timedelta(hours=2) < shift_starts_at:
-                            join_or_accept_shift(shift_id=json_items["objekt_id"], user_location=adc_response_loc,
-                                                 request_type="replace", time_range=(shift_starts_at, shift_ends_at))
-                    else:
-                        if SP_USER_DATA["prog_cutoff_time"] == 0:
-                            if datetime.now() <= shift_starts_at:
-                                join_or_accept_shift(shift_id=json_items["objekt_id"], user_location=adc_response_loc,
-                                                     request_type="replace",
-                                                     time_range=(shift_starts_at, shift_ends_at))
-                        elif SP_USER_DATA["prog_cutoff_time"] == 30:
-                            if datetime.now() + timedelta(minutes=30) <= shift_starts_at:
-                                join_or_accept_shift(shift_id=json_items["objekt_id"], user_location=adc_response_loc,
-                                                     request_type="replace",
-                                                     time_range=(shift_starts_at, shift_ends_at))
-                        else:
-                            if datetime.now() + timedelta(hours=SP_USER_DATA["prog_cutoff_time"]) <= shift_starts_at:
-                                join_or_accept_shift(shift_id=json_items["objekt_id"], user_location=adc_response_loc,
-                                                     request_type="replace",
-                                                     time_range=(shift_starts_at, shift_ends_at))
+                    join_or_accept_shift(shift_id=json_items["objekt_id"],
+                                         shift_comment=shift_comment,
+                                         shift_loc_pos_id=shift_loc_pos_id,
+                                         shift_time_range=(shift_starts_at, shift_ends_at),
+                                         user_location=adc_response_loc,
+                                         request_type="replace")
             elif json_items["key"] == "request.refused":
                 requests.post(f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id=1630691291&text="
                               f"❌ Unsuccessfully shifted (Refused): {response.text}")
@@ -205,7 +313,7 @@ def open_shifts_checker() -> bool:
                 shifts_url_params["locations_position_ids[]"].extend(location["ids"]["car"])
     if shifts_url_params["locations_position_ids[]"]:
         response = requests.get(f"{BASE_URL}/api/v1/shifts", params=shifts_url_params)
-        if response.status_code == 401:  # If login data is outdated
+        if response.status_code == 401:  # login data is outdated
             db.users_auth_update_user(conn=DB_CONNECT, user_id=TG_USER_ID,
                                       sp_email=None, sp_token=None)
             db.sp_users_configs_update_user(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"],
@@ -218,33 +326,25 @@ def open_shifts_checker() -> bool:
             json_response = response.json()
             json_items = json_response["items"]
             for item in json_items:
-                json_pos_id = item["locations_position_id"]
+                shift_comment = item["note"]
+                shift_loc_pos_id = item["locations_position_id"]
                 shift_starts_at = datetime.fromisoformat(item["starts_at"]).replace(tzinfo=None)
                 shift_ends_at = datetime.fromisoformat(item["ends_at"]).replace(tzinfo=None)
-                adc_response = api_data_checker(comment=item["note"],
-                                                user_locations=locations,
-                                                loc_pos_id=json_pos_id,
-                                                datetimes=(shift_starts_at, shift_ends_at))
+                adc_response = api_data_checker(sp_user_data=SP_USER_DATA,
+                                                sp_user_locations=locations,
+                                                shift_comment=shift_comment,
+                                                shift_loc_pos_id=shift_loc_pos_id,
+                                                shift_time_range=(shift_starts_at, shift_ends_at))
                 adc_response_code = adc_response[0]
                 adc_response_loc = adc_response[1]
                 if adc_response_code:
-                    if SP_USER_DATA["prog_cutoff_time"] == 0:
-                        join_or_accept_shift(shift_id=item["id"], user_location=adc_response_loc,
-                                             request_type="join", time_range=(shift_starts_at, shift_ends_at))
-                    elif SP_USER_DATA["prog_cutoff_time"] == 30:
-                        if datetime.now() + timedelta(minutes=30) <= shift_starts_at:
-                            join_or_accept_shift(shift_id=item["id"], user_location=adc_response_loc,
-                                                 request_type="join", time_range=(shift_starts_at, shift_ends_at))
-                    else:
-                        if datetime.now() + timedelta(hours=SP_USER_DATA["prog_cutoff_time"]) <= shift_starts_at:
-                            join_or_accept_shift(shift_id=item["id"], user_location=adc_response_loc,
-                                                 request_type="join", time_range=(shift_starts_at, shift_ends_at))
-            return True
-    else:
-        requests.post(
-            f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id=1630691291&text="
-            f"A little BAG! User: {TG_USER_ID}")
-        return True
+                    join_or_accept_shift(shift_id=item["id"],
+                                         shift_comment=shift_comment,
+                                         shift_loc_pos_id=shift_loc_pos_id,
+                                         shift_time_range=(shift_starts_at, shift_ends_at),
+                                         user_location=adc_response_loc,
+                                         request_type="join")
+    return True
 
 
 def notificator() -> None:
@@ -302,6 +402,7 @@ while True:
     USER_DATA = db.users_get_user(conn=DB_CONNECT, user_id=TG_USER_ID)
     SP_USER_DATA = db.sp_users_get_user(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"])
     SP_USER_SHIFTS_EXTRACTED = json.loads(SP_USER_DATA["shifts"])
+
     if not SP_USER_DATA["subscription"] or not SP_USER_SHIFTS_EXTRACTED:
         time.sleep(5)
         continue
