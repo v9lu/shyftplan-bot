@@ -1,4 +1,4 @@
-# Version 1.4.1 release
+# Version 1.4.2 release
 
 import configparser
 import mysql.connector as mysql
@@ -121,7 +121,7 @@ async def key_deactivator(message: types.Message, command: CommandObject, state:
         if len(parameters) == 1:
             key = parameters[0]
             db.keys_remove_key(conn=db_connect, key=key)
-            await message.reply("✅ Key was successfully removed!")
+            await message.reply("✅ The key was successfully removed!")
     db_connect.close()
 
 
@@ -162,11 +162,11 @@ async def key_waiting(message: types.Message, state: FSMContext, bot: Bot) -> No
                                          f"     ├─ 🆓 <b>Subscription</b>: <code>Trial</code>\n"
                                          f"     ├─ 📅 <b>Days</b>: <code>{key_days}</code>\n"
                                          f"     └─ 🔥 <b>Expire</b>: {expire_text}\n\n"
-                                         "<b>Within 24 hours you will be connected to the bot system "
-                                         "(if not connected yet), while you can configure your bot</b> ❤️‍🔥",
+                                         "<b>Within 24 hours you'll be connected to our bot system "
+                                         "(if you aren't already connected), while you can configure your bot</b> ❤️‍🔥",
                                          reply_markup=keyboard, parse_mode="HTML")
-                    await bot.send_message(1630691291, f"⚡ <b>User <code>{message.from_user.id}</code> successfully "
-                                                       f"activated <code>{key_type}</code> key, "
+                    await bot.send_message(1630691291, f"⚡ <b>User <code>{message.from_user.id}</code> has "
+                                                       f"successfully activated the <code>{key_type}</code> key, "
                                                        f"now you can connect him to the bot</b>",
                                            parse_mode="HTML")
                 else:
@@ -187,11 +187,11 @@ async def key_waiting(message: types.Message, state: FSMContext, bot: Bot) -> No
                                          f"     ├─ 🔹 <b>Subscription</b>: <code>Standard</code>\n"
                                          f"     ├─ 📅 <b>Days</b>: <code>{key_days}</code>\n"
                                          f"     └─ 🔥 <b>Expire</b>: {expire_text}\n\n"
-                                         "<b>Within 24 hours you will be connected to our bot system "
-                                         "(if not connected yet), while you can configure your bot</b> ❤️‍🔥",
+                                         "<b>Within 24 hours you'll be connected to our bot system "
+                                         "(if you aren't already connected), while you can configure your bot</b> ❤️‍🔥",
                                          reply_markup=keyboard, parse_mode="HTML")
-                    await bot.send_message(1630691291, f"⚡ <b>User <code>{message.from_user.id}</code> successfully "
-                                                       f"activated <code>{key_type}</code> key, "
+                    await bot.send_message(1630691291, f"⚡ <b>User <code>{message.from_user.id}</code> has "
+                                                       f"successfully activated the <code>{key_type}</code> key, "
                                                        f"now you can connect him to the bot</b>",
                                            parse_mode="HTML")
                 elif key_type == "premium":
@@ -199,11 +199,11 @@ async def key_waiting(message: types.Message, state: FSMContext, bot: Bot) -> No
                                          f"     ├─ 💎 <b>Subscription</b>: <code>Premium</code>\n"
                                          f"     ├─ 📅 <b>Days</b>: <code>{key_days}</code>\n"
                                          f"     └─ 🔥 <b>Expire</b>: {expire_text}\n\n"
-                                         "<b>Within 24 hours you will be connected to our bot system "
-                                         "(if not connected yet), while you can configure your bot</b> ❤️‍🔥",
+                                         "<b>Within 24 hours you'll be connected to our bot system "
+                                         "(if you aren't already connected), while you can configure your bot</b> ❤️‍🔥",
                                          reply_markup=keyboard, parse_mode="HTML")
-                    await bot.send_message(1630691291, f"⚡ <b>User <code>{message.from_user.id}</code> successfully "
-                                                       f"activated <code>{key_type}</code> key, "
+                    await bot.send_message(1630691291, f"⚡ <b>User <code>{message.from_user.id}</code> has "
+                                                       f"successfully activated the <code>{key_type}</code> key, "
                                                        f"now you can connect him to the bot</b>",
                                            parse_mode="HTML")
                 elif key_type == "friend":
@@ -211,11 +211,11 @@ async def key_waiting(message: types.Message, state: FSMContext, bot: Bot) -> No
                                          f"     ├─ 👑 <b>Subscription</b>: <code>Friend</code>\n"
                                          f"     ├─ 📅 <b>Days</b>: <code>{key_days}</code>\n"
                                          f"     └─ 🔥 <b>Expire</b>: {expire_text}\n\n"
-                                         "<b>Within 24 hours you will be connected to our bot system "
-                                         "(if not connected yet), while you can configure your bot</b> ❤️‍🔥",
+                                         "<b>Within 24 hours you'll be connected to our bot system "
+                                         "(if you aren't already connected), while you can configure your bot</b> ❤️‍🔥",
                                          reply_markup=keyboard, parse_mode="HTML")
-                    await bot.send_message(1630691291, f"⚡ <b>User <code>{message.from_user.id}</code> successfully "
-                                                       f"activated <code>{key_type}</code> key, "
+                    await bot.send_message(1630691291, f"⚡ <b>User <code>{message.from_user.id}</code> has "
+                                                       f"successfully activated the <code>{key_type}</code> key, "
                                                        f"now you can connect him to the bot</b>",
                                            parse_mode="HTML")
                 elif key_type == "admin":
@@ -223,11 +223,11 @@ async def key_waiting(message: types.Message, state: FSMContext, bot: Bot) -> No
                                          f"     ├─ 🖥 <b>Subscription</b>: <code>Admin</code>\n"
                                          f"     ├─ 📅 <b>Days</b>: <code>{key_days}</code>\n"
                                          f"     └─ 🔥 <b>Expire</b>: {expire_text}\n\n"
-                                         "<b>Within 24 hours you will be connected to our bot system "
-                                         "(if not connected yet), while you can configure your bot</b> ❤️‍🔥",
+                                         "<b>Within 24 hours you'll be connected to our bot system "
+                                         "(if you aren't already connected), while you can configure your bot</b> ❤️‍🔥",
                                          reply_markup=keyboard, parse_mode="HTML")
-                    await bot.send_message(1630691291, f"⚡ <b>User <code>{message.from_user.id}</code> successfully "
-                                                       f"activated <code>{key_type}</code> key, "
+                    await bot.send_message(1630691291, f"⚡ <b>User <code>{message.from_user.id}</code> has "
+                                                       f"successfully activated the <code>{key_type}</code> key, "
                                                        f"now you can connect him to the bot</b>",
                                            parse_mode="HTML")
         else:
@@ -235,7 +235,7 @@ async def key_waiting(message: types.Message, state: FSMContext, bot: Bot) -> No
             await message.answer("❌ Key not found!", reply_markup=keyboard)
     else:
         keyboard = await create_menu_keyboard()
-        await message.answer("🚫 You aren't authorized! For a login, use a special button or /auth command",
+        await message.answer("🚫 You aren't authorized! Use a special button for login or the command /auth",
                              reply_markup=keyboard)
     await state.clear()
     db_connect.close()
