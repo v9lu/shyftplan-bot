@@ -1,4 +1,4 @@
-# Version 3.1.0 release
+# Version 3.1.1 release
 
 import configparser
 import mysql.connector as mysql
@@ -79,6 +79,6 @@ async def buy_subscription(message: types.Message, state: FSMContext) -> None:
         await message.answer("💳 Available plans", reply_markup=keyboard)
     else:
         keyboard = await create_menu_keyboard()
-        await message.answer("🚫 You aren't authorized! For a login, use a special button or /auth command",
+        await message.answer("🚫 You aren't authorized! Use a special button for login or the command /auth",
                              reply_markup=keyboard)
     db_connect.close()
