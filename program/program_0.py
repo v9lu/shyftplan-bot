@@ -1,4 +1,4 @@
-# Version 1.19.0 release
+# Version 1.19.1 release
 
 import configparser
 import json
@@ -228,7 +228,7 @@ def join_or_accept_shift(shift_id: int,
 
 
 def newsfeeds_checker() -> bool:
-    locations = work_data.converter(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"], today=datetime.now())
+    locations = work_data.converter(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"])
     response = requests.get(f"{BASE_URL}/api/v1/newsfeeds",
                             params={"user_email": USER_DATA["sp_email"],
                                     "authentication_token": USER_DATA["sp_token"],
@@ -292,7 +292,7 @@ def newsfeeds_checker() -> bool:
 
 
 def open_shifts_checker() -> bool:
-    locations = work_data.converter(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"], today=datetime.now())
+    locations = work_data.converter(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"])
     shifts_url_params = {
         "user_email": USER_DATA["sp_email"],
         "authentication_token": USER_DATA["sp_token"],
@@ -348,7 +348,7 @@ def open_shifts_checker() -> bool:
 
 
 def notificator() -> None:
-    wait_locations = work_data.converter(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"], today=datetime.now())
+    wait_locations = work_data.converter(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"])
     wait_location_date_ranges = [location_date for location in wait_locations for location_date in location["dates"]]
     timezone = pytz.timezone("Europe/Warsaw")
     min_start_date_iso = timezone.localize(min(wait_location_date_ranges,
