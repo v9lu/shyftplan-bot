@@ -1,4 +1,4 @@
-# Version 3.1.0 release
+# Version 3.1.1 release
 
 import asyncio
 import configparser
@@ -36,12 +36,12 @@ async def update_shifts(message: types.Message, state: FSMContext) -> None:
     if user_data["sp_uid"]:
         sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
         keyboard = await create_ds_keyboard(sp_user_data["shifts"])
-        await message.answer("♻️ Please select the DS where you would like to set or cancel auto-shifting",
+        await message.answer("♻️ Please select the DS on which you want to set or cancel auto-shifting",
                              reply_markup=keyboard, parse_mode="HTML")
         await state.set_state(UpdateShifts.waiting_for_ds)
     else:
         keyboard = await create_menu_keyboard()
-        await message.answer("🚫 You aren't authorized! For a login, use a special button or /auth command",
+        await message.answer("🚫 You aren't authorized! Use a special button for login or the command /auth",
                              reply_markup=keyboard)
     db_connect.close()
 
@@ -60,7 +60,7 @@ async def update_shifts_ds(call: types.CallbackQuery, state: FSMContext) -> None
     keyboard = await create_years_keyboard(user_shifts=sp_user_data["shifts"],
                                            ds_name=call.data)
     try:
-        await call.message.edit_text("♻️ Now select auto-shifting year for current DS", reply_markup=keyboard)
+        await call.message.edit_text("♻️ Now choose the auto-shifting year for the current DS", reply_markup=keyboard)
         await state.set_state(UpdateShifts.waiting_for_year)
     except TelegramBadRequest:
         pass
@@ -83,7 +83,7 @@ async def update_shifts_year(call: types.CallbackQuery, state: FSMContext) -> No
         keyboard = await create_months_keyboard(user_shifts=sp_user_data["shifts"],
                                                 ds_name=state_data["ds"], year=call.data)
         try:
-            await call.message.edit_text("♻️ Now select month", reply_markup=keyboard)
+            await call.message.edit_text("♻️ Now select the month", reply_markup=keyboard)
             await state.set_state(UpdateShifts.waiting_for_month)
         except TelegramBadRequest:
             pass
@@ -91,7 +91,7 @@ async def update_shifts_year(call: types.CallbackQuery, state: FSMContext) -> No
     else:
         keyboard = await create_ds_keyboard(user_shifts=sp_user_data["shifts"])
         try:
-            await call.message.edit_text("♻️ Please select the DS where you would like to set or cancel auto-shifting",
+            await call.message.edit_text("♻️ Please select the DS on which you want to set or cancel auto-shifting",
                                          reply_markup=keyboard)
             await state.set_state(UpdateShifts.waiting_for_ds)
         except TelegramBadRequest:
@@ -116,7 +116,7 @@ async def update_shifts_month(call: types.CallbackQuery, state: FSMContext) -> N
                                               ds_name=state_data["ds"], year=state_data["year"],
                                               month=call.data)
         try:
-            await call.message.edit_text("♻️ Select day", reply_markup=keyboard)
+            await call.message.edit_text("♻️ Select the day", reply_markup=keyboard)
             await state.set_state(UpdateShifts.waiting_for_day)
         except TelegramBadRequest:
             pass
@@ -124,7 +124,7 @@ async def update_shifts_month(call: types.CallbackQuery, state: FSMContext) -> N
     else:
         keyboard = await create_years_keyboard(user_shifts=sp_user_data["shifts"], ds_name=state_data["ds"])
         try:
-            await call.message.edit_text("♻️ Now select auto-shifting year for current DS", reply_markup=keyboard)
+            await call.message.edit_text("♻️ Now choose the auto-shifting year for the current DS", reply_markup=keyboard)
             await state.set_state(UpdateShifts.waiting_for_year)
         except TelegramBadRequest:
             pass
@@ -148,7 +148,7 @@ async def update_shifts_day(call: types.CallbackQuery, state: FSMContext) -> Non
                                                ds_name=state_data["ds"], year=state_data["year"],
                                                month=state_data["month"], day=call.data)
         try:
-            await call.message.edit_text("♻️ Now click on hours couple to set/unset auto-shifting time",
+            await call.message.edit_text("♻️ Now click on the pair of hours to set/unset the auto-shifting time",
                                          reply_markup=keyboard)
             await state.set_state(UpdateShifts.waiting_for_hours)
         except TelegramBadRequest:
@@ -158,7 +158,7 @@ async def update_shifts_day(call: types.CallbackQuery, state: FSMContext) -> Non
         keyboard = await create_months_keyboard(user_shifts=sp_user_data["shifts"],
                                                 ds_name=state_data["ds"], year=state_data["year"])
         try:
-            await call.message.edit_text("♻️ Now select month", reply_markup=keyboard)
+            await call.message.edit_text("♻️ Now select the month", reply_markup=keyboard)
             await state.set_state(UpdateShifts.waiting_for_month)
         except TelegramBadRequest:
             pass
@@ -215,7 +215,7 @@ async def update_shifts_hours(call: types.CallbackQuery, state: FSMContext) -> N
                                                ds_name=state_data["ds"], year=state_data["year"],
                                                month=state_data["month"], day=state_data["day"])
         try:
-            await call.message.edit_text("♻️ Now click on hours couple to set/unset auto-shifting time",
+            await call.message.edit_text("♻️ Now click on the pair of hours to set/unset the auto-shifting time",
                                          reply_markup=keyboard)
             await state.set_state(UpdateShifts.waiting_for_hours)
         except TelegramBadRequest:
@@ -226,7 +226,7 @@ async def update_shifts_hours(call: types.CallbackQuery, state: FSMContext) -> N
                                               ds_name=state_data["ds"], year=state_data["year"],
                                               month=state_data["month"])
         try:
-            await call.message.edit_text("♻️ Select day", reply_markup=keyboard)
+            await call.message.edit_text("♻️ Select the day", reply_markup=keyboard)
             await state.set_state(UpdateShifts.waiting_for_day)
         except TelegramBadRequest:
             pass
