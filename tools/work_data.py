@@ -1,4 +1,4 @@
-# Version 1.7.0 release
+# Version 1.7.1 release
 
 import copy
 import json
@@ -97,7 +97,7 @@ def take_date(element):
     return element
 
 
-def converter(conn: MySQLConnection, sp_uid: int, today: datetime) -> list:
+def converter(conn: MySQLConnection, sp_uid: int) -> list:
     # conn > sp_users_db
     locations = copy.deepcopy(locations_sample)
 
@@ -110,7 +110,7 @@ def converter(conn: MySQLConnection, sp_uid: int, today: datetime) -> list:
     for shift in shifts_extracted:
         shift_date_str = shift.split("/")[1]
         shift_date = datetime.strptime(shift_date_str, "%d.%m.%Y")
-        if shift_date >= today:
+        if shift_date >= datetime.combine(datetime.now(), datetime.min.time()):
             shifts_to_keep.append(shift)
 
     # OTHER ACTIONS
