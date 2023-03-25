@@ -1,4 +1,4 @@
-# Version 2.4.0 release
+# Version 2.4.1 release
 
 import configparser
 import mysql.connector as mysql
@@ -31,11 +31,8 @@ async def standard_30(message: types.Message, state: FSMContext) -> None:
         sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
         if sp_user_data['subscription'] == 'standard' or sub_counts["standard"] < allocated_subs["standard"]:
             await message.answer_invoice(title="📅 30 day subscription (standard)",
-                                         description="🔹 This subscription includes: \n"
-                                                     "1. Auto-shifting from the Open Shifts; \n"
-                                                     "2. Auto-shifting from the Notifications; \n"
-                                                     "3. Auto-shifting only for bikes; \n"
-                                                     "4. Auto-shifting timeout 5 sec",
+                                         description="🔹 You can read more about the benefits of subscriptions here: "
+                                                     "https://telegra.ph/ZJBot-User-Guide-03-23",
                                          payload=f"standard:30",
                                          provider_token=STRIPE_TOKEN,
                                          currency="PLN",
@@ -47,7 +44,7 @@ async def standard_30(message: types.Message, state: FSMContext) -> None:
             await message.answer("🚫 There are currently no available slots for the selected subscription!")
     else:
         keyboard = await create_menu_keyboard()
-        await message.answer("🚫 You aren't authorized! For a login, use a special button or /auth command",
+        await message.answer("🚫 You aren't authorized! Use a special button for login or the command /auth",
                              reply_markup=keyboard)
     db_connect.close()
 
@@ -67,12 +64,8 @@ async def premium_30(message: types.Message, state: FSMContext) -> None:
         sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
         if sp_user_data['subscription'] == 'premium' or sub_counts["premium"] < allocated_subs["premium"]:
             await message.answer_invoice(title="📅 30 day subscription (premium)",
-                                         description="💎️ This subscription includes: \n"
-                                                     "1. Everything as a standard subscription; \n"
-                                                     "2. Priority over standard subscription users; \n"
-                                                     "3. Ability to receive news from the Shyftplan; \n"
-                                                     "4. Ability to choose any transport (bike, scooter, car); \n"
-                                                     "5. Ability to set auto-shifting timeout from 5 to 1 or 0.3 sec",
+                                         description="💎️ You can read more about the benefits of subscriptions here: "
+                                                     "https://telegra.ph/ZJBot-User-Guide-03-23",
                                          payload=f"premium:30",
                                          provider_token=STRIPE_TOKEN,
                                          currency="PLN",
@@ -84,7 +77,7 @@ async def premium_30(message: types.Message, state: FSMContext) -> None:
             await message.answer("🚫 There are currently no available slots for the selected subscription!")
     else:
         keyboard = await create_menu_keyboard()
-        await message.answer("🚫 You aren't authorized! For a login, use a special button or /auth command",
+        await message.answer("🚫 You aren't authorized! Use a special button for login or the command /auth",
                              reply_markup=keyboard)
     db_connect.close()
 
@@ -116,10 +109,10 @@ async def trial_7(message: types.Message, state: FSMContext):
             else:
                 await message.answer("🚫 There are currently no available slots for the selected subscription!")
         else:
-            await message.answer("🚫 You have already got the trial key!", reply_markup=keyboard)
+            await message.answer("🚫 You have already received the trial key!", reply_markup=keyboard)
     else:
         keyboard = await create_menu_keyboard()
-        await message.answer("🚫 You aren't authorized! For a login, use a special button or /auth command",
+        await message.answer("🚫 You aren't authorized! Use a special button for login or the command /auth",
                              reply_markup=keyboard)
     db_connect.close()
 
