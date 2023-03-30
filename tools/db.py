@@ -1,4 +1,4 @@
-# Version 2.4.2 release
+# Version 2.5.0 release
 
 from mysql.connector import MySQLConnection
 
@@ -32,22 +32,22 @@ def keys_remove_key(conn: MySQLConnection, key: str):
         conn.commit()
 
 
-# NEWSFEEDS_DB
-def newsfeeds_is_old_id(conn: MySQLConnection, sp_uid: int, newsfeed_id: int) -> bool:
-    if conn.database != "newsfeeds_db":
-        conn.connect(database="newsfeeds_db")
+# REPEATS_DB
+def is_old_id(conn: MySQLConnection, sp_uid: int, item_id: int) -> bool:
+    if conn.database != "repeats_db":
+        conn.connect(database="repeats_db")
     with conn.cursor() as cursor:
-        cursor.execute("SELECT EXISTS (SELECT 1 FROM old_ids WHERE user_id=%s AND newsfeed_id=%s)",
-                       (sp_uid, newsfeed_id))
+        cursor.execute("SELECT EXISTS (SELECT 1 FROM old_ids WHERE user_id=%s AND item_id=%s)",
+                       (sp_uid, item_id))
         id_exists = cursor.fetchone()[0]
     return id_exists
 
 
-def newsfeeds_add_old_id(conn: MySQLConnection, sp_uid: int, newsfeed_id: int):
-    if conn.database != "newsfeeds_db":
-        conn.connect(database="newsfeeds_db")
+def add_old_id(conn: MySQLConnection, sp_uid: int, item_id: int):
+    if conn.database != "repeats_db":
+        conn.connect(database="repeats_db")
     with conn.cursor() as cursor:
-        cursor.execute("INSERT IGNORE INTO old_ids (user_id, newsfeed_id) VALUES (%s, %s)", (sp_uid, newsfeed_id))
+        cursor.execute("INSERT IGNORE INTO old_ids (user_id, item_id) VALUES (%s, %s)", (sp_uid, item_id))
         conn.commit()
 
 
