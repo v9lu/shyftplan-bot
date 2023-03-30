@@ -1,13 +1,15 @@
-# Version 2.4.0 release
+# Version 2.5.0 release
 
 import aiohttp
 import configparser
 import mysql.connector as mysql
+import pytz
 from aiogram import Router, types
 from aiogram.filters import Command, Text
 from aiogram.filters.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram.types import ReplyKeyboardRemove
+from datetime import datetime, timedelta
 from mysql.connector import MySQLConnection
 
 from bot_keyboards import create_menu_keyboard, create_settings_keyboard
@@ -50,11 +52,19 @@ async def authorization(conn: MySQLConnection, user_id: int,
                     json_response = await response.json()
                 sp_eid = json_response["items"][0]["id"]
                 sp_uid = json_response["items"][0]["user_id"]
-                trusted_position_id = 145325
-                params["id"] = trusted_position_id
-                async with session.get("https://shyftplan.com/api/v1/positions", params=params) as response:
+
+                # Editing params
+                timezone = pytz.timezone("Europe/Warsaw")
+                trusted_loc_pos_ids = [170251, 170258, 170254  # Warsaw
+                                       ]  # Gdansk
+                params["page"], params["per_page"] = 1, 1
+                params["starts_at"] = timezone.localize(datetime.now()).isoformat()
+                params["ends_at"] = timezone.localize(datetime.now() + timedelta(days=2)).isoformat()
+                params["locations_position_ids[]"] = trusted_loc_pos_ids
+
+                async with session.get("https://shyftplan.com/api/v1/shifts", params=params) as response:
                     json_response = await response.json()
-                if len(json_response["items"]):
+                if json_response["total"]:
                     is_trusted = True
                 else:
                     is_trusted = False
