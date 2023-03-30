@@ -1,5 +1,5 @@
 CREATE DATABASE IF NOT EXISTS keys_db;
-CREATE DATABASE IF NOT EXISTS newsfeeds_db;
+CREATE DATABASE IF NOT EXISTS repeats_db;
 CREATE DATABASE IF NOT EXISTS sp_users_db;
 CREATE DATABASE IF NOT EXISTS users_db;
 
@@ -11,11 +11,11 @@ CREATE TABLE IF NOT EXISTS activation_keys (
     key_days INT
 );
 
-USE newsfeeds_db;
+USE repeats_db;
 
 CREATE TABLE IF NOT EXISTS old_ids (
     user_id INT,
-    newsfeed_id INT
+    item_id INT
 );
 
 USE sp_users_db;
