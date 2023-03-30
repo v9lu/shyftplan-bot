@@ -1,4 +1,4 @@
-# Version 1.4.2 release
+# Version 1.4.3 release
 
 import configparser
 import mysql.connector as mysql
@@ -28,8 +28,7 @@ async def activate_key_btn(message: types.Message, state: FSMContext) -> None:
 
 
 @router.message(Text(text="🔑 Create key"))
-async def create_key_btn(message: types.Message, state: FSMContext) -> None:
-    await state.clear()
+async def create_key_btn(message: types.Message) -> None:
     db_data = config_data.get_db(configparser.ConfigParser())
     db_connect = mysql.connect(user="root",
                                host=db_data["ip"],
@@ -48,8 +47,7 @@ async def create_key_btn(message: types.Message, state: FSMContext) -> None:
 
 
 @router.message(Text(text="🚫 Deactivate key"))
-async def deactivate_key_btn(message: types.Message, state: FSMContext) -> None:
-    await state.clear()
+async def deactivate_key_btn(message: types.Message) -> None:
     db_data = config_data.get_db(configparser.ConfigParser())
     db_connect = mysql.connect(user="root",
                                host=db_data["ip"],
@@ -66,8 +64,7 @@ async def deactivate_key_btn(message: types.Message, state: FSMContext) -> None:
 
 
 @router.message(Command(commands=["key"]))
-async def key_generator(message: types.Message, command: CommandObject, state: FSMContext) -> None:
-    await state.clear()
+async def key_generator(message: types.Message, command: CommandObject) -> None:
     db_data = config_data.get_db(configparser.ConfigParser())
     db_connect = mysql.connect(user="root",
                                host=db_data["ip"],
@@ -147,6 +144,7 @@ async def key_waiting(message: types.Message, state: FSMContext, bot: Bot) -> No
                         expire_date = sp_user_data["expire"] + timedelta(days=key_days)
             expire_text = datetime.strftime(expire_date,
                                             "<code>%d</code> <code>%B</code> <code>%Y</code>, <code>%H:%M</code>")
+            photo_id = "AgACAgIAAxkBAAJNV2QjEe1WJSZOtAOXh3dsGog7zOqSAAIVyjEbsLQZSYiHj_di2VgSAQADAgADeQADLwQ"
             if key_type == "trial":
                 if not sp_user_data["used_trial"]:
                     db.sp_users_subscriptions_update_user(conn=db_connect, sp_uid=user_data["sp_uid"],
@@ -158,13 +156,16 @@ async def key_waiting(message: types.Message, state: FSMContext, bot: Bot) -> No
                                                     prog_sleep=5)
                     sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
                     keyboard = await create_menu_keyboard(sp_user_data=sp_user_data)
-                    await message.answer("✅ <b>Successfully activated!</b>\n"
-                                         f"     ├─ 🆓 <b>Subscription</b>: <code>Trial</code>\n"
-                                         f"     ├─ 📅 <b>Days</b>: <code>{key_days}</code>\n"
-                                         f"     └─ 🔥 <b>Expire</b>: {expire_text}\n\n"
-                                         "<b>Within 24 hours you'll be connected to our bot system "
-                                         "(if you aren't already connected), while you can configure your bot</b> ❤️‍🔥",
-                                         reply_markup=keyboard, parse_mode="HTML")
+                    await message.answer_photo(photo=photo_id,
+                                               caption=f"✅ <b>Successfully activated!</b>\n"
+                                                       f"     ├─ 🆓 <b>Subscription</b>: <code>Trial</code>\n"
+                                                       f"     ├─ 📅 <b>Days</b>: <code>{key_days}</code>\n"
+                                                       f"     └─ 🔥 <b>Expire</b>: {expire_text}\n"
+                                                       "❤️‍🔥 <b>Within 24 hours you'll be connected to our bot system "
+                                                       "(if you aren't already connected), "
+                                                       "now you can configure your bot</b>",
+                                               reply_markup=keyboard,
+                                               parse_mode="HTML")
                     await bot.send_message(1630691291, f"⚡ <b>User <code>{message.from_user.id}</code> has "
                                                        f"successfully activated the <code>{key_type}</code> key, "
                                                        f"now you can connect him to the bot</b>",
@@ -183,49 +184,60 @@ async def key_waiting(message: types.Message, state: FSMContext, bot: Bot) -> No
                                                     prog_news=0,
                                                     scooter_status=0, car_status=0,
                                                     prog_sleep=5)
-                    await message.answer("✅ <b>Successfully activated!</b>\n"
-                                         f"     ├─ 🔹 <b>Subscription</b>: <code>Standard</code>\n"
-                                         f"     ├─ 📅 <b>Days</b>: <code>{key_days}</code>\n"
-                                         f"     └─ 🔥 <b>Expire</b>: {expire_text}\n\n"
-                                         "<b>Within 24 hours you'll be connected to our bot system "
-                                         "(if you aren't already connected), while you can configure your bot</b> ❤️‍🔥",
-                                         reply_markup=keyboard, parse_mode="HTML")
+                    await message.answer_photo(photo=photo_id,
+                                               caption=f"✅ <b>Successfully activated!</b>\n"
+                                                       f"     ├─ 🔹 <b>Subscription</b>: <code>Standard</code>\n"
+                                                       f"     ├─ 📅 <b>Days</b>: <code>{key_days}</code>\n"
+                                                       f"     └─ 🔥 <b>Expire</b>: {expire_text}\n"
+                                                       "❤️‍🔥 <b>Within 24 hours you'll be connected to our bot system "
+                                                       "(if you aren't already connected), "
+                                                       "now you can configure your bot</b>",
+                                               reply_markup=keyboard,
+                                               parse_mode="HTML")
                     await bot.send_message(1630691291, f"⚡ <b>User <code>{message.from_user.id}</code> has "
                                                        f"successfully activated the <code>{key_type}</code> key, "
                                                        f"now you can connect him to the bot</b>",
                                            parse_mode="HTML")
                 elif key_type == "premium":
-                    await message.answer("✅ <b>Successfully activated!</b>\n"
-                                         f"     ├─ 💎 <b>Subscription</b>: <code>Premium</code>\n"
-                                         f"     ├─ 📅 <b>Days</b>: <code>{key_days}</code>\n"
-                                         f"     └─ 🔥 <b>Expire</b>: {expire_text}\n\n"
-                                         "<b>Within 24 hours you'll be connected to our bot system "
-                                         "(if you aren't already connected), while you can configure your bot</b> ❤️‍🔥",
-                                         reply_markup=keyboard, parse_mode="HTML")
+                    await message.answer_photo(photo=photo_id,
+                                               caption=f"✅ <b>Successfully activated!</b>\n"
+                                                       f"     ├─ 💎 <b>Subscription</b>: <code>Premium</code>\n"
+                                                       f"     ├─ 📅 <b>Days</b>: <code>{key_days}</code>\n"
+                                                       f"     └─ 🔥 <b>Expire</b>: {expire_text}\n"
+                                                       "❤️‍🔥 <b>Within 24 hours you'll be connected to our bot system "
+                                                       "(if you aren't already connected), "
+                                                       "now you can configure your bot</b>",
+                                                       reply_markup=keyboard, parse_mode="HTML")
                     await bot.send_message(1630691291, f"⚡ <b>User <code>{message.from_user.id}</code> has "
                                                        f"successfully activated the <code>{key_type}</code> key, "
                                                        f"now you can connect him to the bot</b>",
                                            parse_mode="HTML")
                 elif key_type == "friend":
-                    await message.answer("✅ <b>Successfully activated!</b>\n"
-                                         f"     ├─ 👑 <b>Subscription</b>: <code>Friend</code>\n"
-                                         f"     ├─ 📅 <b>Days</b>: <code>{key_days}</code>\n"
-                                         f"     └─ 🔥 <b>Expire</b>: {expire_text}\n\n"
-                                         "<b>Within 24 hours you'll be connected to our bot system "
-                                         "(if you aren't already connected), while you can configure your bot</b> ❤️‍🔥",
-                                         reply_markup=keyboard, parse_mode="HTML")
+                    await message.answer_photo(photo=photo_id,
+                                               caption=f"✅ <b>Successfully activated!</b>\n"
+                                                       f"     ├─ 👑 <b>Subscription</b>: <code>Friend</code>\n"
+                                                       f"     ├─ 📅 <b>Days</b>: <code>{key_days}</code>\n"
+                                                       f"     └─ 🔥 <b>Expire</b>: {expire_text}\n"
+                                                       "❤️‍🔥 <b>Within 24 hours you'll be connected to our bot system "
+                                                       "(if you aren't already connected), "
+                                                       "now you can configure your bot</b>",
+                                               reply_markup=keyboard,
+                                               parse_mode="HTML")
                     await bot.send_message(1630691291, f"⚡ <b>User <code>{message.from_user.id}</code> has "
                                                        f"successfully activated the <code>{key_type}</code> key, "
                                                        f"now you can connect him to the bot</b>",
                                            parse_mode="HTML")
                 elif key_type == "admin":
-                    await message.answer("✅ <b>Successfully activated!</b>\n"
-                                         f"     ├─ 🖥 <b>Subscription</b>: <code>Admin</code>\n"
-                                         f"     ├─ 📅 <b>Days</b>: <code>{key_days}</code>\n"
-                                         f"     └─ 🔥 <b>Expire</b>: {expire_text}\n\n"
-                                         "<b>Within 24 hours you'll be connected to our bot system "
-                                         "(if you aren't already connected), while you can configure your bot</b> ❤️‍🔥",
-                                         reply_markup=keyboard, parse_mode="HTML")
+                    await message.answer_photo(photo=photo_id,
+                                               caption=f"✅ <b>Successfully activated!</b>\n"
+                                                       f"     ├─ 🖥 <b>Subscription</b>: <code>Admin</code>\n"
+                                                       f"     ├─ 📅 <b>Days</b>: <code>{key_days}</code>\n"
+                                                       f"     └─ 🔥 <b>Expire</b>: {expire_text}\n"
+                                                       "❤️‍🔥 <b>Within 24 hours you'll be connected to our bot system "
+                                                       "(if you aren't already connected), "
+                                                       "while you can configure your bot</b>",
+                                               reply_markup=keyboard,
+                                               parse_mode="HTML")
                     await bot.send_message(1630691291, f"⚡ <b>User <code>{message.from_user.id}</code> has "
                                                        f"successfully activated the <code>{key_type}</code> key, "
                                                        f"now you can connect him to the bot</b>",
