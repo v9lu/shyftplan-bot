@@ -1,4 +1,4 @@
-# Version 2.4.1 release
+# Version 2.4.2 release
 
 from mysql.connector import MySQLConnection
 
@@ -56,9 +56,8 @@ def sp_users_add_user(conn: MySQLConnection, sp_uid: int) -> None:
     if conn.database != "sp_users_db":
         conn.connect(database="sp_users_db")
     with conn.cursor() as cursor:
-        tables = ["sp_users_configs", "sp_users_subscriptions"]
-        for table in tables:
-            cursor.execute(f"INSERT IGNORE INTO {table} (sp_uid) VALUES (%s)", (sp_uid,))
+        cursor.execute(f"INSERT IGNORE INTO sp_users_configs (sp_uid, shifts) VALUES (%s, %s)", (sp_uid, "[]"))
+        cursor.execute(f"INSERT IGNORE INTO sp_users_subscriptions (sp_uid) VALUES (%s)", (sp_uid,))
         conn.commit()
 
 
