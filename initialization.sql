@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS sp_users_configs (
     car_status BOOL NOT NULL DEFAULT 0,
     prog_sleep FLOAT(3, 2) NOT NULL DEFAULT 5,
     prog_cutoff_time TINYINT NOT NULL DEFAULT 1,
-    shifts MEDIUMTEXT NOT NULL DEFAULT "[]"
+    shifts MEDIUMTEXT
 );
 
 USE users_db;
