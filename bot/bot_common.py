@@ -1,8 +1,8 @@
-# Version 3.1.1 release
+# Version 3.1.2 release
 
 import configparser
 import mysql.connector as mysql
-from aiogram import Router, types
+from aiogram import F, Router, types
 from aiogram.filters import Command, Text
 from aiogram.fsm.context import FSMContext
 from datetime import datetime
@@ -81,4 +81,20 @@ async def buy_subscription(message: types.Message, state: FSMContext) -> None:
         keyboard = await create_menu_keyboard()
         await message.answer("🚫 You aren't authorized! Use a special button for login or the command /auth",
                              reply_markup=keyboard)
+    db_connect.close()
+
+
+@router.message(F.photo)
+async def photo_id(message: types.Message) -> None:
+    db_data = config_data.get_db(configparser.ConfigParser())
+    db_connect = mysql.connect(user="root",
+                               host=db_data["ip"],
+                               port=db_data["port"],
+                               password=db_data["password"])
+    user_data = db.users_get_user(conn=db_connect, user_id=message.from_user.id)
+    sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
+    if sp_user_data["subscription"] == "admin":
+        await message.answer_photo(photo=message.photo[-1].file_id,
+                                   caption=f"🌄 <b>Photo ID:</b> <code>{message.photo[-1].file_id}</code>",
+                                   parse_mode="HTML")
     db_connect.close()
