@@ -1,11 +1,10 @@
-# Version 2.4.1 release
+# Version 2.4.2 release
 
 import configparser
 import mysql.connector as mysql
 import random
 import string
 from aiogram import F, Router, types
-from aiogram.filters import Text
 from aiogram.fsm.context import FSMContext
 from aiogram.types import LabeledPrice
 
@@ -82,7 +81,7 @@ async def premium_30(message: types.Message, state: FSMContext) -> None:
     db_connect.close()
 
 
-@router.message(Text(text="🆓 7 day's trial"))
+@router.message(F.text.contains("🆓 7 day's trial"))
 async def trial_7(message: types.Message, state: FSMContext):
     await state.clear()
     allocated_subs = config_data.get_subs(configparser.ConfigParser())
