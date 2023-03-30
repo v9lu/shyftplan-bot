@@ -1,4 +1,4 @@
-# Version 1.19.1 release
+# Version 1.20.0 release
 
 import configparser
 import json
@@ -127,11 +127,17 @@ def can_be_shifted(shift_id: int,
                 return True
         else:
             return True
-
-    trusted_position_id = 145325
-    response = requests.get(f"{BASE_URL}/api/v1/positions/{trusted_position_id}",
+    timezone = pytz.timezone("Europe/Warsaw")
+    trusted_loc_pos_ids = [170251, 170258, 170254  # Warsaw
+                           ]  # Gdansk
+    response = requests.get(f"{BASE_URL}/api/v1/shifts",
                             params={"user_email": USER_DATA["sp_email"],
-                                    "authentication_token": USER_DATA["sp_token"]})
+                                    "authentication_token": USER_DATA["sp_token"],
+                                    "page": 1,
+                                    "per_page": 1,
+                                    "starts_at": timezone.localize(datetime.now()).isoformat(),
+                                    "ends_at": timezone.localize(datetime.now() + timedelta(days=2)).isoformat(),
+                                    "locations_position_ids[]": trusted_loc_pos_ids})
     json_response = response.json()
     if json_response:
         is_trusted = True
@@ -154,7 +160,7 @@ def join_or_accept_shift(shift_id: int,
                          shift_loc_pos_id: int,
                          shift_time_range: tuple,
                          user_location: dict,
-                         request_type: str,) -> None:
+                         request_type: str) -> None:
     timezone = pytz.timezone("Europe/Warsaw")
     shift_starts_at = timezone.localize(shift_time_range[0])
     response = requests.get(f"{BASE_URL}/api/v1/evaluations",
@@ -219,12 +225,27 @@ def join_or_accept_shift(shift_id: int,
         if can_be_shifted(shift_id=shift_id, shift_from_news=True, shift_comment=shift_comment,
                           shift_time_range=shift_time_range, shift_loc_pos_id=shift_loc_pos_id,
                           trusted_shift=trusted_shift):
-            requests.post(f"{BASE_URL}/api/v1/requests/replace/accept",
-                          params={"user_email": USER_DATA["sp_email"],
-                                  "authentication_token": USER_DATA["sp_token"],
-                                  "company_id": COMPANY_ID,
-                                  "id": shift_id,
-                                  "ignore_conflicts": "false"})
+            response = requests.post(f"{BASE_URL}/api/v1/requests/replace/accept",
+                                     params={"user_email": USER_DATA["sp_email"],
+                                             "authentication_token": USER_DATA["sp_token"],
+                                             "company_id": COMPANY_ID,
+                                             "id": shift_id,
+                                             "ignore_conflicts": "false"})
+            json_response = json.loads(response.text)
+            if "conflicts" in json_response:
+                date_start_str = shift_time_range[0].strftime("%d.%m.%Y")
+                date_end_str = shift_time_range[1].strftime("%d.%m.%Y")
+                time_start_str = shift_time_range[0].strftime("%H:%M")
+                time_end_str = shift_time_range[1].strftime("%H:%M")
+                day_string = f"{user_location['name']}/{date_start_str}/{time_start_str}-{time_end_str}"
+                work_data.remove_days(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"], days=day_string)
+                requests.post(f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_USER_ID}&text="
+                              f"📕 <b>Shift was removed from your list:</b>\n"
+                              f"<b>DS:</b> {user_location['fullname']}\n"
+                              f"<b>Start:</b> {date_start_str} at {time_start_str}\n"
+                              f"<b>End:</b> {date_end_str} at {time_end_str}\n"
+                              f"<b>Info:</b> You already have a shift at the same time"
+                              f"&parse_mode=HTML")
 
 
 def newsfeeds_checker() -> bool:
@@ -247,7 +268,7 @@ def newsfeeds_checker() -> bool:
     else:
         json_response = response.json()
         json_items = json_response["items"][0]
-        is_old = db.newsfeeds_is_old_id(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"], newsfeed_id=json_items["id"])
+        is_old = db.is_old_id(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"], item_id=json_items["id"])
         if not is_old:
             if json_items["key"] == "request.swap_request" and SP_USER_DATA["prog_shift_offers"]:
                 shift_loc_pos_id: int = json_items["metadata"]["locations_position_ids"][0]
@@ -287,7 +308,7 @@ def newsfeeds_checker() -> bool:
             elif json_items["key"] == "message" and SP_USER_DATA["prog_news"]:
                 requests.post(f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_USER_ID}&text="
                               f"💬 Shyftplan Message:\n{json_items['message']}")
-            db.newsfeeds_add_old_id(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"], newsfeed_id=json_items["id"])
+            db.add_old_id(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"], item_id=json_items["id"])
         return True
 
 
@@ -298,9 +319,9 @@ def open_shifts_checker() -> bool:
         "authentication_token": USER_DATA["sp_token"],
         "company_id": COMPANY_ID,
         "page": 1,
-        "per_page": 150,
+        "per_page": 300,
         "only_open": "true",
-        "order_dir": "desc",
+        "order_dir": "asc",
         "locations_position_ids[]": []
     }
     for location in locations:
@@ -338,12 +359,15 @@ def open_shifts_checker() -> bool:
                 adc_response_code = adc_response[0]
                 adc_response_loc = adc_response[1]
                 if adc_response_code:
-                    join_or_accept_shift(shift_id=item["id"],
-                                         shift_comment=shift_comment,
-                                         shift_loc_pos_id=shift_loc_pos_id,
-                                         shift_time_range=(shift_starts_at, shift_ends_at),
-                                         user_location=adc_response_loc,
-                                         request_type="join")
+                    is_old = db.is_old_id(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"], item_id=item["id"])
+                    if not is_old:
+                        join_or_accept_shift(shift_id=item["id"],
+                                             shift_comment=shift_comment,
+                                             shift_loc_pos_id=shift_loc_pos_id,
+                                             shift_time_range=(shift_starts_at, shift_ends_at),
+                                             user_location=adc_response_loc,
+                                             request_type="join")
+                        db.add_old_id(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"], item_id=item["id"])
     return True
 
 
