@@ -1,4 +1,4 @@
-# Version 1.20.0 release
+# Version 1.20.1 release
 
 import configparser
 import json
@@ -139,7 +139,7 @@ def can_be_shifted(shift_id: int,
                                     "ends_at": timezone.localize(datetime.now() + timedelta(days=2)).isoformat(),
                                     "locations_position_ids[]": trusted_loc_pos_ids})
     json_response = response.json()
-    if json_response:
+    if json_response["total"]:
         is_trusted = True
     else:
         is_trusted = False
@@ -206,8 +206,7 @@ def join_or_accept_shift(shift_id: int,
                 "company_id": COMPANY_ID,
                 "shift_id": shift_id
             })
-            json_response = json.loads(response.text)
-            if "conflicts" in json_response:
+            if response.status_code == 400:  # Conflict
                 date_start_str = shift_time_range[0].strftime("%d.%m.%Y")
                 date_end_str = shift_time_range[1].strftime("%d.%m.%Y")
                 time_start_str = shift_time_range[0].strftime("%H:%M")
@@ -231,8 +230,7 @@ def join_or_accept_shift(shift_id: int,
                                              "company_id": COMPANY_ID,
                                              "id": shift_id,
                                              "ignore_conflicts": "false"})
-            json_response = json.loads(response.text)
-            if "conflicts" in json_response:
+            if response.status_code == 400:  # Conflict
                 date_start_str = shift_time_range[0].strftime("%d.%m.%Y")
                 date_end_str = shift_time_range[1].strftime("%d.%m.%Y")
                 time_start_str = shift_time_range[0].strftime("%H:%M")
