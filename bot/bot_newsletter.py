@@ -1,4 +1,4 @@
-# Version 1.0.3 release
+# Version 1.0.4 release
 
 import configparser
 import mysql.connector as mysql
@@ -22,7 +22,7 @@ class Newsletter(StatesGroup):
 async def send_news(bot: Bot, users_ids: list, news_text: str) -> None:
     for user_id in users_ids:
         try:
-            await bot.send_message(user_id, news_text, parse_mode="HTML")
+            await bot.send_message(user_id, news_text, disable_web_page_preview=True, parse_mode="HTML")
             print("[GOOD, SENDED] ID:", user_id)
         except TelegramForbiddenError:
             print("[BAD, BOT WAS BLOCKED] ID:", user_id)
