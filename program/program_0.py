@@ -1,4 +1,4 @@
-# Version 1.20.1 release
+# Version 1.20.2 release
 
 import configparser
 import json
@@ -372,51 +372,52 @@ def open_shifts_checker() -> bool:
 def notificator() -> None:
     wait_locations = work_data.converter(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"])
     wait_location_date_ranges = [location_date for location in wait_locations for location_date in location["dates"]]
-    timezone = pytz.timezone("Europe/Warsaw")
-    min_start_date_iso = timezone.localize(min(wait_location_date_ranges,
-                                               key=lambda location_date: location_date[0])[0]).isoformat()
-    max_end_date_iso = timezone.localize(max(wait_location_date_ranges,
-                                             key=lambda location_date: location_date[1])[1]).isoformat()
-    response = requests.get(f"{BASE_URL}/api/v1/shifts", params={
-        "user_email": USER_DATA["sp_email"],
-        "authentication_token": USER_DATA["sp_token"],
-        "company_id": COMPANY_ID,
-        "page": 1,
-        "per_page": 150,
-        "starts_at": min_start_date_iso,
-        "ends_at": max_end_date_iso,
-        "employment_id": USER_DATA["sp_eid"],
-        "order_dir": "desc"
-    })
-    json_response = response.json()
-    booked_shifts = json_response["items"]
+    if wait_location_date_ranges:
+        timezone = pytz.timezone("Europe/Warsaw")
+        min_start_date_iso = timezone.localize(min(wait_location_date_ranges,
+                                                   key=lambda location_date: location_date[0])[0]).isoformat()
+        max_end_date_iso = timezone.localize(max(wait_location_date_ranges,
+                                                 key=lambda location_date: location_date[1])[1]).isoformat()
+        response = requests.get(f"{BASE_URL}/api/v1/shifts", params={
+            "user_email": USER_DATA["sp_email"],
+            "authentication_token": USER_DATA["sp_token"],
+            "company_id": COMPANY_ID,
+            "page": 1,
+            "per_page": 150,
+            "starts_at": min_start_date_iso,
+            "ends_at": max_end_date_iso,
+            "employment_id": USER_DATA["sp_eid"],
+            "order_dir": "desc"
+        })
+        json_response = response.json()
+        booked_shifts = json_response["items"]
 
-    # delete locations that was booked
-    for location in wait_locations:
-        for shift in booked_shifts:
-            if any(shift["locations_position_id"] in ids_set for ids_set in location["ids"].values()):
-                shift_starts_at = datetime.fromisoformat(shift["starts_at"]).replace(tzinfo=None)
-                shift_ends_at = datetime.fromisoformat(shift["ends_at"]).replace(tzinfo=None)
-                shift_time_range = (shift_starts_at, shift_ends_at)
-                if shift_time_range in location["dates"]:
-                    date_start_str = shift_starts_at.strftime("%d.%m.%Y")
-                    date_end_str = shift_ends_at.strftime("%d.%m.%Y")
-                    time_start_str = shift_starts_at.strftime("%H:%M")
-                    time_end_str = shift_ends_at.strftime("%H:%M")
-                    day_string = f"{location['name']}/{date_start_str}/{time_start_str}-{time_end_str}"
-                    work_data.remove_days(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"], days=day_string)
-                    addition_hours = (shift_ends_at - shift_starts_at).seconds / 60 / 60
-                    addition_earn = addition_hours * 25
-                    db.users_statistics_update_user_add(conn=DB_CONNECT, user_id=TG_USER_ID,
-                                                        shifted_shifts_add=1, shifted_hours_add=addition_hours,
-                                                        earned_add=addition_earn)
-                    requests.post(
-                        f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_USER_ID}&text="
-                        f"✅ <b>New shift booked!</b>\n"
-                        f"<b>DS:</b> {location['fullname']}\n"
-                        f"<b>Start:</b> {date_start_str} <b>at</b> {time_start_str}\n"
-                        f"<b>End:</b> {date_end_str} <b>at</b> {time_end_str}"
-                        f"&parse_mode=HTML")
+        # delete locations that was booked
+        for location in wait_locations:
+            for shift in booked_shifts:
+                if any(shift["locations_position_id"] in ids_set for ids_set in location["ids"].values()):
+                    shift_starts_at = datetime.fromisoformat(shift["starts_at"]).replace(tzinfo=None)
+                    shift_ends_at = datetime.fromisoformat(shift["ends_at"]).replace(tzinfo=None)
+                    shift_time_range = (shift_starts_at, shift_ends_at)
+                    if shift_time_range in location["dates"]:
+                        date_start_str = shift_starts_at.strftime("%d.%m.%Y")
+                        date_end_str = shift_ends_at.strftime("%d.%m.%Y")
+                        time_start_str = shift_starts_at.strftime("%H:%M")
+                        time_end_str = shift_ends_at.strftime("%H:%M")
+                        day_string = f"{location['name']}/{date_start_str}/{time_start_str}-{time_end_str}"
+                        work_data.remove_days(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"], days=day_string)
+                        addition_hours = (shift_ends_at - shift_starts_at).seconds / 60 / 60
+                        addition_earn = addition_hours * 25
+                        db.users_statistics_update_user_add(conn=DB_CONNECT, user_id=TG_USER_ID,
+                                                            shifted_shifts_add=1, shifted_hours_add=addition_hours,
+                                                            earned_add=addition_earn)
+                        requests.post(
+                            f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_USER_ID}&text="
+                            f"✅ <b>New shift booked!</b>\n"
+                            f"<b>DS:</b> {location['fullname']}\n"
+                            f"<b>Start:</b> {date_start_str} <b>at</b> {time_start_str}\n"
+                            f"<b>End:</b> {date_end_str} <b>at</b> {time_end_str}"
+                            f"&parse_mode=HTML")
 
 
 # MAIN SCRIPT #
