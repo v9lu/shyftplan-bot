@@ -1,4 +1,4 @@
-# Version 1.20.2 release
+# Version 1.20.1 release
 
 import configparser
 import json
@@ -357,15 +357,12 @@ def open_shifts_checker() -> bool:
                 adc_response_code = adc_response[0]
                 adc_response_loc = adc_response[1]
                 if adc_response_code:
-                    is_old = db.is_old_id(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"], item_id=item["id"])
-                    if not is_old:
-                        join_or_accept_shift(shift_id=item["id"],
-                                             shift_comment=shift_comment,
-                                             shift_loc_pos_id=shift_loc_pos_id,
-                                             shift_time_range=(shift_starts_at, shift_ends_at),
-                                             user_location=adc_response_loc,
-                                             request_type="join")
-                        db.add_old_id(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"], item_id=item["id"])
+                    join_or_accept_shift(shift_id=item["id"],
+                                         shift_comment=shift_comment,
+                                         shift_loc_pos_id=shift_loc_pos_id,
+                                         shift_time_range=(shift_starts_at, shift_ends_at),
+                                         user_location=adc_response_loc,
+                                         request_type="join")
     return True
 
 
