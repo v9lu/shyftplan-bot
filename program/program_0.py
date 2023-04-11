@@ -1,4 +1,4 @@
-# Version 1.20.1 release
+# Version 1.21.0 release
 
 import configparser
 import json
@@ -127,7 +127,6 @@ def can_be_shifted(shift_id: int,
                 return True
         else:
             return True
-    timezone = pytz.timezone("Europe/Warsaw")
     trusted_loc_pos_ids = [170251, 170258, 170254  # Warsaw
                            ]  # Gdansk
     response = requests.get(f"{BASE_URL}/api/v1/shifts",
@@ -135,8 +134,8 @@ def can_be_shifted(shift_id: int,
                                     "authentication_token": USER_DATA["sp_token"],
                                     "page": 1,
                                     "per_page": 1,
-                                    "starts_at": timezone.localize(datetime.now()).isoformat(),
-                                    "ends_at": timezone.localize(datetime.now() + timedelta(days=2)).isoformat(),
+                                    "starts_at": POLAND_TIMEZONE.localize(datetime.now()).isoformat(),
+                                    "ends_at": POLAND_TIMEZONE.localize(datetime.now() + timedelta(days=2)).isoformat(),
                                     "locations_position_ids[]": trusted_loc_pos_ids})
     json_response = response.json()
     if json_response["total"]:
@@ -161,8 +160,7 @@ def join_or_accept_shift(shift_id: int,
                          shift_time_range: tuple,
                          user_location: dict,
                          request_type: str) -> None:
-    timezone = pytz.timezone("Europe/Warsaw")
-    shift_starts_at = timezone.localize(shift_time_range[0])
+    shift_starts_at = POLAND_TIMEZONE.localize(shift_time_range[0])
     response = requests.get(f"{BASE_URL}/api/v1/evaluations",
                             params={"user_email": USER_DATA["sp_email"],
                                     "authentication_token": USER_DATA["sp_token"],
@@ -320,6 +318,7 @@ def open_shifts_checker() -> bool:
         "per_page": 300,
         "only_open": "true",
         "order_dir": "asc",
+        "starts_at": POLAND_TIMEZONE.localize(datetime.now()).isoformat(),
         "locations_position_ids[]": []
     }
     for location in locations:
@@ -357,12 +356,15 @@ def open_shifts_checker() -> bool:
                 adc_response_code = adc_response[0]
                 adc_response_loc = adc_response[1]
                 if adc_response_code:
-                    join_or_accept_shift(shift_id=item["id"],
-                                         shift_comment=shift_comment,
-                                         shift_loc_pos_id=shift_loc_pos_id,
-                                         shift_time_range=(shift_starts_at, shift_ends_at),
-                                         user_location=adc_response_loc,
-                                         request_type="join")
+                    is_old = db.is_old_id(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"], item_id=item["id"])
+                    if not is_old:
+                        join_or_accept_shift(shift_id=item["id"],
+                                             shift_comment=shift_comment,
+                                             shift_loc_pos_id=shift_loc_pos_id,
+                                             shift_time_range=(shift_starts_at, shift_ends_at),
+                                             user_location=adc_response_loc,
+                                             request_type="join")
+                        db.add_old_id(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"], item_id=item["id"])
     return True
 
 
@@ -370,11 +372,10 @@ def notificator() -> None:
     wait_locations = work_data.converter(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"])
     wait_location_date_ranges = [location_date for location in wait_locations for location_date in location["dates"]]
     if wait_location_date_ranges:
-        timezone = pytz.timezone("Europe/Warsaw")
-        min_start_date_iso = timezone.localize(min(wait_location_date_ranges,
-                                                   key=lambda location_date: location_date[0])[0]).isoformat()
-        max_end_date_iso = timezone.localize(max(wait_location_date_ranges,
-                                                 key=lambda location_date: location_date[1])[1]).isoformat()
+        min_start_date_iso = POLAND_TIMEZONE.localize(min(wait_location_date_ranges,
+                                                          key=lambda location_date: location_date[0])[0]).isoformat()
+        max_end_date_iso = POLAND_TIMEZONE.localize(max(wait_location_date_ranges,
+                                                        key=lambda location_date: location_date[1])[1]).isoformat()
         response = requests.get(f"{BASE_URL}/api/v1/shifts", params={
             "user_email": USER_DATA["sp_email"],
             "authentication_token": USER_DATA["sp_token"],
@@ -419,6 +420,7 @@ def notificator() -> None:
 
 # MAIN SCRIPT #
 while True:
+    POLAND_TIMEZONE = pytz.timezone("Europe/Warsaw")
     USER_DATA = db.users_get_user(conn=DB_CONNECT, user_id=TG_USER_ID)
     SP_USER_DATA = db.sp_users_get_user(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"])
     SP_USER_SHIFTS_EXTRACTED = json.loads(SP_USER_DATA["shifts"])
