@@ -1,4 +1,4 @@
-# Version 1.21.0 release
+# Version 1.21.1 release
 
 import configparser
 import json
@@ -266,16 +266,10 @@ def newsfeeds_checker() -> bool:
         json_items = json_response["items"][0]
         is_old = db.is_old_id(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"], item_id=json_items["id"])
         if not is_old:
-            if json_items["key"] == "request.swap_request" and SP_USER_DATA["prog_shift_offers"]:
+            if json_items["key"] == "request.swap_request" and "objekt" in json_items and \
+               SP_USER_DATA["prog_shift_offers"]:
                 shift_loc_pos_id: int = json_items["metadata"]["locations_position_ids"][0]
-                try:
-                    shift_id: int = json_items["objekt"]["shift"]["id"]
-                except KeyError:
-                    print('\n\n-------\n', json_items, '\n-------\n\n')
-                    requests.post(
-                        f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id=1630691291&text="
-                        f"BAG BAG BAG!!!!!!!!! User: {TG_USER_ID}")
-                    exit(0)
+                shift_id: int = json_items["objekt"]["shift"]["id"]
                 shift_starts_at_iso: str = json_items["objekt"]["shift"]["starts_at"]  # tz +02:00
                 shift_ends_at_iso: str = json_items["objekt"]["shift"]["ends_at"]  # tz +02:00
                 shift_starts_at = datetime.fromisoformat(shift_starts_at_iso).replace(tzinfo=None)
@@ -324,11 +318,11 @@ def open_shifts_checker() -> bool:
     for location in locations:
         if len(location["dates"]) > 0:
             if SP_USER_DATA["bike_status"] or SP_USER_DATA["scooter_status"]:
-                shifts_url_params["locations_position_ids[]"].extend(location["ids"]["bike"])
+                shifts_url_params["locations_position_ids[]"].append(location["ids"]["bike"])
             if SP_USER_DATA["scooter_status"]:
-                shifts_url_params["locations_position_ids[]"].extend(location["ids"]["scooter"])
+                shifts_url_params["locations_position_ids[]"].append(location["ids"]["scooter"])
             if SP_USER_DATA["car_status"]:
-                shifts_url_params["locations_position_ids[]"].extend(location["ids"]["car"])
+                shifts_url_params["locations_position_ids[]"].append(location["ids"]["car"])
     if shifts_url_params["locations_position_ids[]"]:
         response = requests.get(f"{BASE_URL}/api/v1/shifts", params=shifts_url_params)
         if response.status_code == 401:  # login data is outdated
@@ -425,11 +419,15 @@ while True:
     SP_USER_DATA = db.sp_users_get_user(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"])
     SP_USER_SHIFTS_EXTRACTED = json.loads(SP_USER_DATA["shifts"])
 
-    if not SP_USER_DATA["subscription"] or not SP_USER_SHIFTS_EXTRACTED:
+    if not SP_USER_DATA["subscription"]:
         time.sleep(5)
         continue
 
     if datetime.now() >= SP_USER_DATA["expire"]:
+        time.sleep(5)
+        continue
+
+    if SP_USER_DATA["prog_news"] == 0 and not SP_USER_SHIFTS_EXTRACTED:
         time.sleep(5)
         continue
 
