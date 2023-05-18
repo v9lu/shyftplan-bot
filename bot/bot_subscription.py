@@ -1,4 +1,4 @@
-# Version 2.4.2 release
+# Version 2.4.3 release
 
 import configparser
 import mysql.connector as mysql
@@ -119,15 +119,16 @@ async def trial_7(message: types.Message, state: FSMContext):
 @router.pre_checkout_query()
 async def pre_checkout(pre_checkout_query: types.PreCheckoutQuery):
     sub_type = pre_checkout_query.invoice_payload.split(":")[0]
+    allocated_subs = config_data.get_subs(configparser.ConfigParser())
     db_data = config_data.get_db(configparser.ConfigParser())
     db_connect = mysql.connect(user="root",
                                host=db_data["ip"],
                                port=db_data["port"],
                                password=db_data["password"])
     sub_counts = db.sp_users_get_subs_count(conn=db_connect)
-    if sub_type == "premium" and sub_counts["premium"] < 1:
+    if sub_type == "premium" and sub_counts["premium"] < allocated_subs["premium"]:
         await pre_checkout_query.answer(True)
-    elif sub_type == "standard" and sub_counts["standard"] < 6:
+    elif sub_type == "standard" and sub_counts["standard"] < allocated_subs["standard"]:
         await pre_checkout_query.answer(True)
     else:
         await pre_checkout_query.answer(False, error_message="🚫 There are currently no available slots "
