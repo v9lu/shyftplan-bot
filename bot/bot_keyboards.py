@@ -1,4 +1,4 @@
-# Version 3.3.1 release
+# Version 3.4.0 release
 
 import calendar
 import datetime
@@ -253,7 +253,8 @@ async def create_months_keyboard(user_shifts: str, ds_name: str, year: str) -> I
     return months_keyboard.as_markup()
 
 
-async def create_days_keyboard(user_shifts: str, ds_name: str, year: str, month: str) -> InlineKeyboardMarkup:
+async def create_days_keyboard(selection_mode: bool, user_shifts: str, ds_name: str, year: str,
+                               month: str) -> InlineKeyboardMarkup:
     shifts_extracted = json.loads(user_shifts) if user_shifts else []
     now = datetime.datetime.now()
     current_year = now.year
@@ -278,13 +279,23 @@ async def create_days_keyboard(user_shifts: str, ds_name: str, year: str, month:
                 shift_day = shift_date_obj.day
                 if shift_year == int(year) and shift_month == int(month) and shift_day == day:
                     day_text = "🟢 " + day_text
+                    day_call = f"{day:02d}_remove"
                     break
             else:
                 continue
-        keyboard_buttons.append(InlineKeyboardButton(text=day_text, callback_data=f"{day:02d}"))
+        else:
+            day_call = f"{day:02d}_add"
+        if selection_mode:
+            keyboard_buttons.append(InlineKeyboardButton(text=day_text, callback_data=day_call))
+        else:
+            keyboard_buttons.append(InlineKeyboardButton(text=day_text, callback_data=f"{day:02d}"))
 
     days_keyboard = InlineKeyboardBuilder()
     days_keyboard.row(*keyboard_buttons, width=7)
+    if selection_mode:
+        days_keyboard.row(InlineKeyboardButton(text="🔘 Selection Mode", callback_data="selection_mode_off"))
+    else:
+        days_keyboard.row(InlineKeyboardButton(text="🎯 Standard Mode", callback_data="selection_mode_on"))
     days_keyboard.row(InlineKeyboardButton(text="◀️ Back to months", callback_data="step_back"))
     return days_keyboard.as_markup()
 
@@ -292,7 +303,9 @@ async def create_days_keyboard(user_shifts: str, ds_name: str, year: str, month:
 async def create_hours_keyboard(user_shifts: str, ds_name: str, year: str, month: str,
                                 day: str) -> InlineKeyboardMarkup:
     shifts_extracted = json.loads(user_shifts) if user_shifts else []
-    hours_couples = ["07:00-11:00", "11:00-15:00", "15:00-19:00", "19:00-23:30", "19:00-00:30"]
+    hours_couples = ["07:00-11:00", "10:00-15:00", "11:00-15:00",
+                     "14:00-18:00", "15:00-19:00", "18:00-22:00",
+                     "19:00-23:30", "19:00-00:30"]
     keyboard_buttons = []
 
     for hours_couple in hours_couples:
