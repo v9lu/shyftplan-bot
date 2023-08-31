@@ -1,4 +1,4 @@
-# Version 2.4.3 release
+# Version 2.4.4 release
 
 import configparser
 import mysql.connector as mysql
@@ -126,13 +126,21 @@ async def pre_checkout(pre_checkout_query: types.PreCheckoutQuery):
                                port=db_data["port"],
                                password=db_data["password"])
     sub_counts = db.sp_users_get_subs_count(conn=db_connect)
-    if sub_type == "premium" and sub_counts["premium"] < allocated_subs["premium"]:
-        await pre_checkout_query.answer(True)
-    elif sub_type == "standard" and sub_counts["standard"] < allocated_subs["standard"]:
-        await pre_checkout_query.answer(True)
+    user_data = db.users_get_user(conn=db_connect, user_id=pre_checkout_query.from_user.id)
+    if user_data["sp_uid"]:
+        sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
+        if sub_type == "premium" and (sp_user_data['subscription'] == 'premium' or
+                                      sub_counts["premium"] < allocated_subs["premium"]):
+            await pre_checkout_query.answer(True)
+        elif sub_type == "standard" and (sp_user_data['subscription'] == 'standard' or
+                                         sub_counts["standard"] < allocated_subs["standard"]):
+            await pre_checkout_query.answer(True)
+        else:
+            await pre_checkout_query.answer(False, error_message="🚫 There are currently no available slots "
+                                                                 "for the selected subscription!")
     else:
-        await pre_checkout_query.answer(False, error_message="🚫 There are currently no available slots "
-                                                             "for the selected subscription!")
+        await pre_checkout_query.answer(False, error_message="🚫 You aren't authorized! "
+                                                             "Use a command /auth for login!")
     db_connect.close()
 
 
