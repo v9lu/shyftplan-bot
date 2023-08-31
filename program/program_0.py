@@ -1,4 +1,4 @@
-# Version 1.21.1 release
+# Version 1.22.0 release
 
 import configparser
 import json
@@ -8,7 +8,6 @@ import requests
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional
 
 from tools import config_data, db, work_data
 
@@ -28,25 +27,19 @@ requests.post(f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_
 
 def api_data_checker(sp_user_data: dict,
                      sp_user_locations: list,
-                     shift_comment: Optional[str],
                      shift_loc_pos_id: int,
                      shift_time_range: tuple) -> list:
     for location in sp_user_locations:
         if (shift_loc_pos_id in location["ids"]["car"] and sp_user_data["car_status"]) or \
            (shift_loc_pos_id in location["ids"]["scooter"] and sp_user_data["scooter_status"]) or \
-           (shift_loc_pos_id in location["ids"]["bike"] and sp_user_data["scooter_status"] and "skuterze" in shift_comment) or \
-           (shift_loc_pos_id in location["ids"]["bike"] and sp_user_data["bike_status"] and "skuterze" not in shift_comment):
+           (shift_loc_pos_id in location["ids"]["bike"] and sp_user_data["bike_status"]):
             if shift_time_range in location["dates"]:
                 return [True, location]
-            else:
-                return [False, None]
-    else:
-        return [False, None]
+    return [False, None]
 
 
 def can_be_shifted(shift_id: int,
                    shift_from_news: bool,
-                   shift_comment: Optional[str],
                    shift_loc_pos_id: int,
                    shift_time_range: tuple,
                    trusted_shift: bool) -> bool:
@@ -96,7 +89,6 @@ def can_be_shifted(shift_id: int,
                     suitable_sp_user_locations = work_data.easy_converter(shifts=suitable_sp_user_data["shifts"])
                     adc_response = api_data_checker(sp_user_data=suitable_sp_user_data,
                                                     sp_user_locations=suitable_sp_user_locations,
-                                                    shift_comment=shift_comment,
                                                     shift_loc_pos_id=shift_loc_pos_id,
                                                     shift_time_range=shift_time_range)
                     if adc_response[0]:
@@ -155,7 +147,6 @@ def can_be_shifted(shift_id: int,
 
 
 def join_or_accept_shift(shift_id: int,
-                         shift_comment: Optional[str],
                          shift_loc_pos_id: int,
                          shift_time_range: tuple,
                          user_location: dict,
@@ -195,7 +186,7 @@ def join_or_accept_shift(shift_id: int,
         trusted_shift = False
 
     if request_type == "join":
-        if can_be_shifted(shift_id=shift_id, shift_from_news=False, shift_comment=shift_comment,
+        if can_be_shifted(shift_id=shift_id, shift_from_news=False,
                           shift_time_range=shift_time_range, shift_loc_pos_id=shift_loc_pos_id,
                           trusted_shift=trusted_shift):
             response = requests.post(f"{BASE_URL}/api/v1/requests/join", params={
@@ -219,7 +210,7 @@ def join_or_accept_shift(shift_id: int,
                               f"<b>Info:</b> You already have a shift at the same time"
                               f"&parse_mode=HTML")
     elif request_type == "replace":
-        if can_be_shifted(shift_id=shift_id, shift_from_news=True, shift_comment=shift_comment,
+        if can_be_shifted(shift_id=shift_id, shift_from_news=True,
                           shift_time_range=shift_time_range, shift_loc_pos_id=shift_loc_pos_id,
                           trusted_shift=trusted_shift):
             response = requests.post(f"{BASE_URL}/api/v1/requests/replace/accept",
@@ -274,20 +265,14 @@ def newsfeeds_checker() -> bool:
                 shift_ends_at_iso: str = json_items["objekt"]["shift"]["ends_at"]  # tz +02:00
                 shift_starts_at = datetime.fromisoformat(shift_starts_at_iso).replace(tzinfo=None)
                 shift_ends_at = datetime.fromisoformat(shift_ends_at_iso).replace(tzinfo=None)
-                response = requests.get(f"{BASE_URL}/api/v1/shifts/{shift_id}",
-                                        params={"user_email": USER_DATA["sp_email"],
-                                                "authentication_token": USER_DATA["sp_token"]})
-                shift_comment = json.loads(response.text)["note"]
                 adc_response = api_data_checker(sp_user_data=SP_USER_DATA,
                                                 sp_user_locations=locations,
-                                                shift_comment=shift_comment,
                                                 shift_loc_pos_id=shift_loc_pos_id,
                                                 shift_time_range=(shift_starts_at, shift_ends_at))
                 adc_response_code = adc_response[0]
                 adc_response_loc = adc_response[1]
                 if adc_response_code:
                     join_or_accept_shift(shift_id=json_items["objekt_id"],
-                                         shift_comment=shift_comment,
                                          shift_loc_pos_id=shift_loc_pos_id,
                                          shift_time_range=(shift_starts_at, shift_ends_at),
                                          user_location=adc_response_loc,
@@ -338,13 +323,11 @@ def open_shifts_checker() -> bool:
             json_response = response.json()
             json_items = json_response["items"]
             for item in json_items:
-                shift_comment = item["note"]
                 shift_loc_pos_id = item["locations_position_id"]
                 shift_starts_at = datetime.fromisoformat(item["starts_at"]).replace(tzinfo=None)
                 shift_ends_at = datetime.fromisoformat(item["ends_at"]).replace(tzinfo=None)
                 adc_response = api_data_checker(sp_user_data=SP_USER_DATA,
                                                 sp_user_locations=locations,
-                                                shift_comment=shift_comment,
                                                 shift_loc_pos_id=shift_loc_pos_id,
                                                 shift_time_range=(shift_starts_at, shift_ends_at))
                 adc_response_code = adc_response[0]
@@ -353,7 +336,6 @@ def open_shifts_checker() -> bool:
                     is_old = db.is_old_id(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"], item_id=item["id"])
                     if not is_old:
                         join_or_accept_shift(shift_id=item["id"],
-                                             shift_comment=shift_comment,
                                              shift_loc_pos_id=shift_loc_pos_id,
                                              shift_time_range=(shift_starts_at, shift_ends_at),
                                              user_location=adc_response_loc,
@@ -414,46 +396,51 @@ def notificator() -> None:
 
 # MAIN SCRIPT #
 while True:
-    POLAND_TIMEZONE = pytz.timezone("Europe/Warsaw")
-    USER_DATA = db.users_get_user(conn=DB_CONNECT, user_id=TG_USER_ID)
-    SP_USER_DATA = db.sp_users_get_user(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"])
-    SP_USER_SHIFTS_EXTRACTED = json.loads(SP_USER_DATA["shifts"])
-
-    if not SP_USER_DATA["subscription"]:
-        time.sleep(5)
-        continue
-
-    if datetime.now() >= SP_USER_DATA["expire"]:
-        time.sleep(5)
-        continue
-
-    if SP_USER_DATA["prog_news"] == 0 and not SP_USER_SHIFTS_EXTRACTED:
-        time.sleep(5)
-        continue
-
-    if not SP_USER_DATA["prog_status"] or \
-            not (SP_USER_DATA["prog_open_shifts"] or
-                 SP_USER_DATA["prog_shift_offers"] or
-                 SP_USER_DATA["prog_news"]) or \
-            not (SP_USER_DATA["bike_status"] or
-                 SP_USER_DATA["scooter_status"] or
-                 SP_USER_DATA["car_status"]):
-        time.sleep(5)
-        continue
-
-    time.sleep(SP_USER_DATA["prog_sleep"])
-
     try:
-        if SP_USER_DATA["prog_open_shifts"]:
-            if not open_shifts_checker():
-                continue
-        if SP_USER_DATA["prog_shift_offers"] or SP_USER_DATA["prog_news"]:
-            if not newsfeeds_checker():
-                continue
-        notificator()
-    except (requests.exceptions.ChunkedEncodingError,
-            requests.exceptions.ConnectionError,
-            json.decoder.JSONDecodeError) as e:
+        POLAND_TIMEZONE = pytz.timezone("Europe/Warsaw")
+        USER_DATA = db.users_get_user(conn=DB_CONNECT, user_id=TG_USER_ID)
+        SP_USER_DATA = db.sp_users_get_user(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"])
+        SP_USER_SHIFTS_EXTRACTED = json.loads(SP_USER_DATA["shifts"])
+
+        if not SP_USER_DATA["subscription"]:
+            time.sleep(5)
+            continue
+
+        if datetime.now() >= SP_USER_DATA["expire"]:
+            time.sleep(5)
+            continue
+
+        if SP_USER_DATA["prog_news"] == 0 and not SP_USER_SHIFTS_EXTRACTED:
+            time.sleep(5)
+            continue
+
+        if not SP_USER_DATA["prog_status"] or \
+                not (SP_USER_DATA["prog_open_shifts"] or
+                     SP_USER_DATA["prog_shift_offers"] or
+                     SP_USER_DATA["prog_news"]) or \
+                not (SP_USER_DATA["bike_status"] or
+                     SP_USER_DATA["scooter_status"] or
+                     SP_USER_DATA["car_status"]):
+            time.sleep(5)
+            continue
+
+        time.sleep(SP_USER_DATA["prog_sleep"])
+
+        try:
+            if SP_USER_DATA["prog_open_shifts"]:
+                if not open_shifts_checker():
+                    continue
+            if SP_USER_DATA["prog_shift_offers"] or SP_USER_DATA["prog_news"]:
+                if not newsfeeds_checker():
+                    continue
+            notificator()
+        except (requests.exceptions.ChunkedEncodingError,
+                requests.exceptions.ConnectionError,
+                json.decoder.JSONDecodeError) as e:
+            print(f"[ERROR] {type(e).__name__}")
+            time.sleep(5)
+            continue
+    except mysql.errors.OperationalError as e:
         print(f"[ERROR] {type(e).__name__}")
         time.sleep(5)
         continue
