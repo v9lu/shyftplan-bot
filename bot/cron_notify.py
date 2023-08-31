@@ -1,4 +1,4 @@
-# Version 1.0.0 release
+# Version 1.0.1 release
 
 import configparser
 import mysql.connector as mysql
@@ -48,7 +48,7 @@ for user in matching_users:
     if datetime.now() > user["expire"] + timedelta(days=3):
         if user["is_notified"] and (user["subscription"] == "standard" or user["subscription"] == "premium"):
             notify(conn=db_connect, sp_uid=user["sp_uid"],
-                   text="🚮 You didn't renew your subscription, so your slot was opened for other users!")
+                   text="🚮 You didn't renew your subscription, your slot was opened for other users!")
             db.sp_users_subscriptions_update_user(conn=db_connect, sp_uid=user["sp_uid"],
                                                   subscription=None, expire=None)
     if datetime.now() > user["expire"]:
