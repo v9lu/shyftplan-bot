@@ -1,4 +1,4 @@
-# Version 3.1.1 release
+# Version 3.2.0 release
 
 import asyncio
 import configparser
@@ -112,7 +112,8 @@ async def update_shifts_month(call: types.CallbackQuery, state: FSMContext) -> N
     state_data = await state.get_data()
     if call.data != "step_back":
         await state.update_data(month=call.data)
-        keyboard = await create_days_keyboard(user_shifts=sp_user_data["shifts"],
+        keyboard = await create_days_keyboard(selection_mode=sp_user_data["selection_mode"],
+                                              user_shifts=sp_user_data["shifts"],
                                               ds_name=state_data["ds"], year=state_data["year"],
                                               month=call.data)
         try:
@@ -124,7 +125,8 @@ async def update_shifts_month(call: types.CallbackQuery, state: FSMContext) -> N
     else:
         keyboard = await create_years_keyboard(user_shifts=sp_user_data["shifts"], ds_name=state_data["ds"])
         try:
-            await call.message.edit_text("♻️ Now choose the auto-shifting year for the current DS", reply_markup=keyboard)
+            await call.message.edit_text("♻️ Now choose the auto-shifting year for the current DS",
+                                         reply_markup=keyboard)
             await state.set_state(UpdateShifts.waiting_for_year)
         except TelegramBadRequest:
             pass
@@ -142,19 +144,8 @@ async def update_shifts_day(call: types.CallbackQuery, state: FSMContext) -> Non
     user_data = db.users_get_user(conn=db_connect, user_id=call.from_user.id)
     sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
     state_data = await state.get_data()
-    if call.data != "step_back":
-        await state.update_data(day=call.data)
-        keyboard = await create_hours_keyboard(user_shifts=sp_user_data["shifts"],
-                                               ds_name=state_data["ds"], year=state_data["year"],
-                                               month=state_data["month"], day=call.data)
-        try:
-            await call.message.edit_text("♻️ Now click on the pair of hours to set/unset the auto-shifting time",
-                                         reply_markup=keyboard)
-            await state.set_state(UpdateShifts.waiting_for_hours)
-        except TelegramBadRequest:
-            pass
-        await call.answer()
-    else:
+
+    if call.data == "step_back":
         keyboard = await create_months_keyboard(user_shifts=sp_user_data["shifts"],
                                                 ds_name=state_data["ds"], year=state_data["year"])
         try:
@@ -163,6 +154,80 @@ async def update_shifts_day(call: types.CallbackQuery, state: FSMContext) -> Non
         except TelegramBadRequest:
             pass
         await call.answer()
+    elif call.data in ["selection_mode_on", "selection_mode_off"]:
+        if call.data == "selection_mode_on":
+            db.sp_users_configs_update_user(conn=db_connect, sp_uid=user_data["sp_uid"], selection_mode=True)
+        else:
+            db.sp_users_configs_update_user(conn=db_connect, sp_uid=user_data["sp_uid"], selection_mode=False)
+        sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
+        keyboard = await create_days_keyboard(selection_mode=sp_user_data["selection_mode"],
+                                              user_shifts=sp_user_data["shifts"],
+                                              ds_name=state_data["ds"], year=state_data["year"],
+                                              month=state_data["month"])
+        try:
+            await call.message.edit_text("♻️ Select the day", reply_markup=keyboard)
+            await state.set_state(UpdateShifts.waiting_for_day)
+        except TelegramBadRequest:
+            pass
+        await call.answer()
+    else:
+        if sp_user_data["selection_mode"]:
+            if call.data[3:] == "add":
+                composed_data = f"{state_data['ds']}/" \
+                                f"{call.data[:2]}.{state_data['month']}.{state_data['year']}/" \
+                                f"07:00-11:00/10:00-15:00/11:00-15:00/" \
+                                f"14:00-18:00/15:00-19:00/18:00-22:00/" \
+                                f"19:00-23:30/19:00-00:30_add"
+            else:
+                composed_data = f"{state_data['ds']}/" \
+                                f"{call.data[:2]}.{state_data['month']}.{state_data['year']}/" \
+                                f"07:00-11:00/10:00-15:00/11:00-15:00/" \
+                                f"14:00-18:00/15:00-19:00/18:00-22:00/" \
+                                f"19:00-23:30/19:00-00:30_remove"
+            composed_data_fragments = composed_data.split("_")
+            shift = composed_data_fragments[0]
+            action = composed_data_fragments[1]
+            if sp_user_data["prog_status"]:
+                # pause program
+                db.sp_users_configs_update_user(conn=db_connect, sp_uid=user_data["sp_uid"], prog_status=False)
+                await call.message.edit_text("🌀 Please wait, update in progress")
+                await asyncio.sleep(sp_user_data["prog_sleep"] * 1.25)
+                # update shifts
+                if action == "add":
+                    work_data.add_days(conn=db_connect, sp_uid=user_data["sp_uid"], days=shift)
+                elif action == "remove":
+                    work_data.remove_days(conn=db_connect, sp_uid=user_data["sp_uid"], days=shift)
+                # unpause program
+                db.sp_users_configs_update_user(conn=db_connect, sp_uid=user_data["sp_uid"], prog_status=True)
+            else:
+                # update shifts
+                if action == "add":
+                    work_data.add_days(conn=db_connect, sp_uid=user_data["sp_uid"], days=shift)
+                elif action == "remove":
+                    work_data.remove_days(conn=db_connect, sp_uid=user_data["sp_uid"], days=shift)
+            sp_user_data = db.sp_users_get_user(conn=db_connect, sp_uid=user_data["sp_uid"])
+            keyboard = await create_days_keyboard(selection_mode=sp_user_data["selection_mode"],
+                                                  user_shifts=sp_user_data["shifts"],
+                                                  ds_name=state_data["ds"], year=state_data["year"],
+                                                  month=state_data["month"])
+            try:
+                await call.message.edit_text("♻️ Select the day", reply_markup=keyboard)
+                await state.set_state(UpdateShifts.waiting_for_day)
+            except TelegramBadRequest:
+                pass
+            await call.answer()
+        else:
+            await state.update_data(day=call.data)
+            keyboard = await create_hours_keyboard(user_shifts=sp_user_data["shifts"],
+                                                   ds_name=state_data["ds"], year=state_data["year"],
+                                                   month=state_data["month"], day=call.data)
+            try:
+                await call.message.edit_text("♻️ Now click on the pair of hours to set/unset the auto-shifting time",
+                                             reply_markup=keyboard)
+                await state.set_state(UpdateShifts.waiting_for_hours)
+            except TelegramBadRequest:
+                pass
+            await call.answer()
     db_connect.close()
 
 
@@ -180,11 +245,15 @@ async def update_shifts_hours(call: types.CallbackQuery, state: FSMContext) -> N
         if call.data == "select_all":
             composed_data = f"{state_data['ds']}/" \
                             f"{state_data['day']}.{state_data['month']}.{state_data['year']}/" \
-                            f"07:00-11:00/11:00-15:00/15:00-19:00/19:00-23:30/19:00-00:30_add"
+                            f"07:00-11:00/10:00-15:00/11:00-15:00/" \
+                            f"14:00-18:00/15:00-19:00/18:00-22:00/" \
+                            f"19:00-23:30/19:00-00:30_add"
         elif call.data == "deselect_all":
             composed_data = f"{state_data['ds']}/" \
                             f"{state_data['day']}.{state_data['month']}.{state_data['year']}/" \
-                            f"07:00-11:00/11:00-15:00/15:00-19:00/19:00-23:30/19:00-00:30_remove"
+                            f"07:00-11:00/10:00-15:00/11:00-15:00/" \
+                            f"14:00-18:00/15:00-19:00/18:00-22:00/" \
+                            f"19:00-23:30/19:00-00:30_remove"
         else:
             composed_data = f"{state_data['ds']}/" \
                             f"{state_data['day']}.{state_data['month']}.{state_data['year']}/" \
@@ -196,7 +265,7 @@ async def update_shifts_hours(call: types.CallbackQuery, state: FSMContext) -> N
             # pause program
             db.sp_users_configs_update_user(conn=db_connect, sp_uid=user_data["sp_uid"], prog_status=False)
             await call.message.edit_text("🌀 Please wait, update in progress")
-            await asyncio.sleep(sp_user_data["prog_sleep"] * 1.5)
+            await asyncio.sleep(sp_user_data["prog_sleep"] * 1.25)
             # update shifts
             if action == "add":
                 work_data.add_days(conn=db_connect, sp_uid=user_data["sp_uid"], days=shift)
@@ -222,7 +291,8 @@ async def update_shifts_hours(call: types.CallbackQuery, state: FSMContext) -> N
             pass
         await call.answer()
     else:
-        keyboard = await create_days_keyboard(user_shifts=sp_user_data["shifts"],
+        keyboard = await create_days_keyboard(selection_mode=sp_user_data["selection_mode"],
+                                              user_shifts=sp_user_data["shifts"],
                                               ds_name=state_data["ds"], year=state_data["year"],
                                               month=state_data["month"])
         try:
