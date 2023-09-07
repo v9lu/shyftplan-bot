@@ -1,4 +1,4 @@
-# Version 1.1.0 release
+# Version 1.2.0 release
 
 import configparser
 import mysql.connector as mysql
@@ -53,7 +53,8 @@ async def change_config(call: types.CallbackQuery, state: FSMContext) -> None:
     sp_user_subscription = sp_user_data["subscription"]
     if sp_user_data["subscription"] and sp_user_data["expire"]:
         if datetime.now() < sp_user_data["expire"]:
-            if call.data in ["prog_status", "prog_open_shifts", "prog_shift_offers", "bike_status", "prog_cutoff_time"]:
+            if call.data in ["prog_status", "prog_open_shifts", "prog_shift_offers",
+                             "bike_status", "ebike_status", "prog_cutoff_time"]:
                 if call.data == "prog_cutoff_time":
                     keyboard = await create_cutoff_times_keyboard(sp_user_data=sp_user_data)
                     try:
