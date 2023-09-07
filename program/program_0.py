@@ -1,4 +1,4 @@
-# Version 1.22.0 release
+# Version 1.23.0 release
 
 import configparser
 import json
@@ -32,6 +32,7 @@ def api_data_checker(sp_user_data: dict,
     for location in sp_user_locations:
         if (shift_loc_pos_id in location["ids"]["car"] and sp_user_data["car_status"]) or \
            (shift_loc_pos_id in location["ids"]["scooter"] and sp_user_data["scooter_status"]) or \
+           (shift_loc_pos_id in location["ids"]["ebike"] and sp_user_data["ebike_status"]) or \
            (shift_loc_pos_id in location["ids"]["bike"] and sp_user_data["bike_status"]):
             if shift_time_range in location["dates"]:
                 return [True, location]
@@ -302,8 +303,10 @@ def open_shifts_checker() -> bool:
     }
     for location in locations:
         if len(location["dates"]) > 0:
-            if SP_USER_DATA["bike_status"] or SP_USER_DATA["scooter_status"]:
+            if SP_USER_DATA["bike_status"]:
                 shifts_url_params["locations_position_ids[]"].append(location["ids"]["bike"])
+            if SP_USER_DATA["ebike_status"]:
+                shifts_url_params["locations_position_ids[]"].append(location["ids"]["ebike"])
             if SP_USER_DATA["scooter_status"]:
                 shifts_url_params["locations_position_ids[]"].append(location["ids"]["scooter"])
             if SP_USER_DATA["car_status"]:
@@ -419,6 +422,7 @@ while True:
                      SP_USER_DATA["prog_shift_offers"] or
                      SP_USER_DATA["prog_news"]) or \
                 not (SP_USER_DATA["bike_status"] or
+                     SP_USER_DATA["ebike_status"] or
                      SP_USER_DATA["scooter_status"] or
                      SP_USER_DATA["car_status"]):
             time.sleep(5)
