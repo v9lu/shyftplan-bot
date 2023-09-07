@@ -1,4 +1,4 @@
-# Version 1.7.1 release
+# Version 1.8.0 release
 
 import copy
 import json
@@ -9,86 +9,106 @@ from unidecode import unidecode
 
 from tools import db
 
-locations_sample = [{"name": "szarych",
-                     "fullname": "Szarych Szeregów 11",
-                     "ids": {"bike": {163056, 170251}, "scooter": {178048}, "car": {168652}},
-                     "dates": []},
-                    {"name": "hawajska",
-                     "fullname": "Hawajska 11",
-                     "ids": {"bike": {165605, 170252}, "scooter": {178049}, "car": {168653}},
-                     "dates": []},
-                    {"name": "lirowa",
-                     "fullname": "Lirowa 26",
-                     "ids": {"bike": {165606, 170254}, "scooter": {178051}, "car": {168655}},
-                     "dates": []},
-                    {"name": "tarnowiecka",
-                     "fullname": "Tarnowiecka 13",
-                     "ids": {"bike": {165607, 170255}, "scooter": {178052}, "car": {168656}},
-                     "dates": []},
-                    {"name": "kamienna",
-                     "fullname": "Kamienna 1",
-                     "ids": {"bike": {165608, 170253}, "scooter": {178050}, "car": {168654}},
-                     "dates": []},
-                    {"name": "miedzynarodowa",
-                     "fullname": "Międzynarodowa 42",
-                     "ids": {"bike": {166576, 170256}, "scooter": {178053}, "car": {168657}},
-                     "dates": []},
-                    {"name": "sikorskiego",
-                     "fullname": "Sikorskiego 3A",
-                     "ids": {"bike": {166585, 170257}, "scooter": {178054}, "car": {168658}},
-                     "dates": []},
-                    {"name": "solidarnosci",
-                     "fullname": "Solidarności 155",
-                     "ids": {"bike": {166586, 170258}, "scooter": {178057}, "car": {168659}},
-                     "dates": []},
-                    {"name": "herbu",
-                     "fullname": "Herbu Janina 5",
-                     "ids": {"bike": {166587, 170259}, "scooter": {178058}, "car": {168660}},
-                     "dates": []},
-                    {"name": "czluchowska",
-                     "fullname": "Człuchowska 35",
-                     "ids": {"bike": {168928, 170260}, "scooter": {178059}, "car": {168930}},
-                     "dates": []},
-                    {"name": "rydygiera",
-                     "fullname": "Rydygiera 13",
-                     "ids": {"bike": {169661, 170261}, "scooter": {178060}, "car": {169695}},
-                     "dates": []},
-                    {"name": "europlex",
-                     "fullname": "Europlex (Puławska 17)",
-                     "ids": {"bike": {170617, 170618}, "scooter": {178061}, "car": {170619}},
-                     "dates": []},
-                    {"name": "grochowskiego",
-                     "fullname": "Grochowskiego 5 [Piaseczno]",
-                     "ids": {"bike": {170856, 170860}, "scooter": {178056}, "car": {170861}},
-                     "dates": []},
-                    {"name": "dolna",
-                     "fullname": "Dolna 41",
-                     "ids": {"bike": {171705, 171707}, "scooter": {178063}, "car": {171706}},
-                     "dates": []},
-                    {"name": "sielecka",
-                     "fullname": "Sielecka 35",
-                     "ids": {"bike": {174110, 174116}, "scooter": {178062}, "car": {174124}},
-                     "dates": []},
-                    {"name": "lekka",
-                     "fullname": "Lekka 3",
-                     "ids": {"bike": {174113, 174117}, "scooter": {178064}, "car": {174125}},
-                     "dates": []},
-                    {"name": "elektryczna",
-                     "fullname": "Elektryczna 2",
-                     "ids": {"bike": {174114, 174118}, "scooter": {178065}, "car": {174126}},
-                     "dates": []
-                     },
-                    {"name": "konstruktorska",
-                     "fullname": "Konstruktorska 13A",
-                     "ids": {"bike": {174153, 174154}, "scooter": {178055}, "car": {174156}},
-                     "dates": []
-                     },
-                    {"name": "grenadierow",
-                     "fullname": "Grenadierów 11",
-                     "ids": {"bike": {177820, 177821}, "scooter": {178066}, "car": {177822}},
-                     "dates": []
-                     }
-                    ]
+locations_sample_warsaw = [{"name": "szarych",
+                            "fullname": "Szarych Szeregów 11",
+                            "ids": {"bike": {163056, 170251}, "ebike": {167474, 207569}, "scooter": {178048, 207550}, "car": {168652}},
+                            "dates": []},
+                           {"name": "hawajska",
+                            "fullname": "Hawajska 11",
+                            "ids": {"bike": {165605, 170252}, "ebike": {167475, 207600}, "scooter": {178049, 207551}, "car": {168653}},
+                            "dates": []},
+                           {"name": "lirowa",
+                            "fullname": "Lirowa 26",
+                            "ids": {"bike": {165606, 170254}, "ebike": {167477, 207602}, "scooter": {178051, 207553}, "car": {168655}, "lite": {200368}},
+                            "dates": []},
+                           {"name": "tarnowiecka",
+                            "fullname": "Tarnowiecka 13",
+                            "ids": {"bike": {165607, 170255}, "ebike": {167478, 207603}, "scooter": {178052, 207554}, "car": {168656}},
+                            "dates": []},
+                           {"name": "kamienna",
+                            "fullname": "Kamienna 1",
+                            "ids": {"bike": {165608, 170253}, "ebike": {167476, 207601}, "scooter": {178050, 207552}, "car": {168654}},
+                            "dates": []},
+                           {"name": "miedzynarodowa",
+                            "fullname": "Międzynarodowa 42",
+                            "ids": {"bike": {166576, 170256}, "ebike": {167479, 207604}, "scooter": {178053, 207555}, "car": {168657}},
+                            "dates": []},
+                           {"name": "sikorskiego",
+                            "fullname": "Sikorskiego 3A",
+                            "ids": {"bike": {166585, 170257}, "ebike": {167480, 207605}, "scooter": {178054, 207556}, "car": {168658}},
+                            "dates": []},
+                           {"name": "solidarnosci",
+                            "fullname": "Solidarności 155",
+                            "ids": {"bike": {166586, 170258}, "ebike": {167481, 207608}, "scooter": {178057, 207559}, "car": {168659}},
+                            "dates": []},
+                           {"name": "herbu",
+                            "fullname": "Herbu Janina 5",
+                            "ids": {"bike": {166587, 170259}, "ebike": {167482, 207609}, "scooter": {178058, 207560}, "car": {168660}},
+                            "dates": []},
+                           {"name": "czluchowska",
+                            "fullname": "Człuchowska 35",
+                            "ids": {"bike": {168928, 170260}, "ebike": {168929, 207610}, "scooter": {178059, 207561}, "car": {168930}},
+                            "dates": []},
+                           {"name": "rydygiera",
+                            "fullname": "Rydygiera 13",
+                            "ids": {"bike": {169661, 170261}, "ebike": {169694, 207611}, "scooter": {178060, 207562}, "car": {169695}},
+                            "dates": []},
+                           {"name": "europlex",
+                            "fullname": "Europlex (Puławska 17)",
+                            "ids": {"bike": {170617, 170618}, "ebike": {170858, 207612}, "scooter": {178061, 207563}, "car": {170619}},
+                            "dates": []},
+                           {"name": "grochowskiego",
+                            "fullname": "Grochowskiego 5 [Piaseczno]",
+                            "ids": {"bike": {170856, 170860}, "ebike": {170859}, "scooter": {178056}, "car": {170861}},
+                            "dates": []},
+                           {"name": "dolna",
+                            "fullname": "Dolna 41",
+                            "ids": {"bike": {171705, 171707}, "ebike": {171708, 207614}, "scooter": {178063, 207565}, "car": {171706}},
+                            "dates": []},
+                           {"name": "sielecka",
+                            "fullname": "Sielecka 35",
+                            "ids": {"bike": {174110, 174116}, "ebike": {174120, 207613}, "scooter": {178062, 207564}, "car": {174124}},
+                            "dates": []},
+                           {"name": "lekka",
+                            "fullname": "Lekka 3",
+                            "ids": {"bike": {174113, 174117}, "ebike": {174121, 207615}, "scooter": {178064, 207566}, "car": {174125}},
+                            "dates": []},
+                           {"name": "elektryczna",
+                            "fullname": "Elektryczna 2",
+                            "ids": {"bike": {174114, 174118}, "ebike": {174122, 207616}, "scooter": {178065, 207567}, "car": {174126}},
+                            "dates": []
+                            },
+                           {"name": "konstruktorska",
+                            "fullname": "Konstruktorska 13A",
+                            "ids": {"bike": {174153, 174154}, "ebike": {174155, 207606}, "scooter": {178055, 207557}, "car": {174156}},
+                            "dates": []
+                            },
+                           {"name": "grenadierow",
+                            "fullname": "Grenadierów 11",
+                            "ids": {"bike": {177820, 177821}, "ebike": {177823, 207617}, "scooter": {178066, 207568}, "car": {177822}},
+                            "dates": []
+                            }]
+
+locations_sample_gdansk = [{"name": "rakoczego",
+                            "fullname": "Rakoczego 19",
+                            "ids": {"bike": {177425, 174597}, "scooter": {178572}, "car": {178580}},
+                            "dates": []
+                            },
+                           {"name": "wilcza",
+                            "fullname": "Wilcza 1",
+                            "ids": {"bike": {182250}, "scooter": {}, "car": {}},
+                            "dates": []
+                            },
+                           {"name": "fieldorfa",
+                            "fullname": "Fieldorfa 2",
+                            "ids": {"bike": {177423, 170312}, "scooter": {178570}, "car": {178578}},
+                            "dates": []
+                            },
+                           {"name": "arkonska",
+                            "fullname": "Arkońska 6",
+                            "ids": {"bike": {177424}, "scooter": {178571}, "car": {178579}},
+                            "dates": []
+                            }]
 
 
 def take_date(element):
@@ -99,7 +119,7 @@ def take_date(element):
 
 def converter(conn: MySQLConnection, sp_uid: int) -> list:
     # conn > sp_users_db
-    locations = copy.deepcopy(locations_sample)
+    locations = copy.deepcopy(locations_sample_warsaw)
 
     # READ SHIFTS
     sp_user_data = db.sp_users_get_user(conn=conn, sp_uid=sp_uid)
@@ -154,7 +174,7 @@ def converter(conn: MySQLConnection, sp_uid: int) -> list:
 
 
 def easy_converter(shifts: str) -> list:
-    locations = copy.deepcopy(locations_sample)
+    locations = copy.deepcopy(locations_sample_warsaw)
 
     # READ SHIFTS
     shifts = json.loads(shifts) if shifts else []
