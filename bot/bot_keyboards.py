@@ -1,4 +1,4 @@
-# Version 3.4.0 release
+# Version 3.5.0 release
 
 import calendar
 import datetime
@@ -99,7 +99,7 @@ async def create_cutoff_times_keyboard(sp_user_data: dict) -> InlineKeyboardMark
 async def create_settings_keyboard(sp_user_data: dict) -> InlineKeyboardMarkup:
     status_template = "{emoji} Status"
     prog_statuses_template = ["{emoji} Open Shifts", "{emoji} Shift Offers", "{emoji} News"]
-    transport_statuses_template = ["{emoji} Bike", "{emoji} Scooter", "{emoji} Car"]
+    transport_statuses_template = ["{emoji} Bike", "{emoji} E-Bike", "{emoji} Scooter", "{emoji} Car"]
     speed_template = "{emoji} Check Speed"
     cutoff_time_template = "{emoji} Cut-Off Time"
 
@@ -115,7 +115,8 @@ async def create_settings_keyboard(sp_user_data: dict) -> InlineKeyboardMarkup:
         else:
             prog_statuses_template[index] = prog_statuses_template[index].format(emoji="❌")
 
-    transport_statuses = [sp_user_data["bike_status"], sp_user_data["scooter_status"], sp_user_data["car_status"]]
+    transport_statuses = [sp_user_data["bike_status"], sp_user_data["ebike_status"],
+                          sp_user_data["scooter_status"], sp_user_data["car_status"]]
     for index in range(len(transport_statuses)):
         if transport_statuses[index]:
             transport_statuses_template[index] = transport_statuses_template[index].format(emoji="✅")
@@ -146,13 +147,14 @@ async def create_settings_keyboard(sp_user_data: dict) -> InlineKeyboardMarkup:
     shift_offers_status_btn = InlineKeyboardButton(text=prog_statuses_template[1], callback_data="prog_shift_offers")
     news_status_btn = InlineKeyboardButton(text=prog_statuses_template[2], callback_data="prog_news")
     bike_status_btn = InlineKeyboardButton(text=transport_statuses_template[0], callback_data="bike_status")
-    scooter_status_btn = InlineKeyboardButton(text=transport_statuses_template[1], callback_data="scooter_status")
-    car_status_btn = InlineKeyboardButton(text=transport_statuses_template[2], callback_data="car_status")
+    ebike_status_btn = InlineKeyboardButton(text=transport_statuses_template[1], callback_data="ebike_status")
+    scooter_status_btn = InlineKeyboardButton(text=transport_statuses_template[2], callback_data="scooter_status")
+    car_status_btn = InlineKeyboardButton(text=transport_statuses_template[3], callback_data="car_status")
     speed_btn = InlineKeyboardButton(text=speed_template, callback_data="prog_sleep")
     cutoff_time_btn = InlineKeyboardButton(text=cutoff_time_template, callback_data="prog_cutoff_time")
     settings_keyboard.row(status_btn)
     settings_keyboard.row(open_shifts_status_btn, shift_offers_status_btn, news_status_btn)
-    settings_keyboard.row(bike_status_btn, scooter_status_btn, car_status_btn)
+    settings_keyboard.row(bike_status_btn, ebike_status_btn, scooter_status_btn, car_status_btn)
     settings_keyboard.row(speed_btn)
     settings_keyboard.row(cutoff_time_btn)
     return settings_keyboard.as_markup()
