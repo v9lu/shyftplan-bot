@@ -1,4 +1,4 @@
-# Version 1.23.2 release
+# Version 1.23.1 release
 
 import configparser
 import json
@@ -26,13 +26,17 @@ requests.post(f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_
               f"💫 <b>The auto-shifting has been started/restarted!</b>"
               f"&parse_mode=HTML")
 
+logging_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
 logging_handler = RotatingFileHandler(f'script_{TG_USER_ID}.log', maxBytes=10 * 1024 * 1024, backupCount=1)
 logging_handler.setLevel(logging.DEBUG)
-logging_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logging_handler.setFormatter(logging_formatter)
-logging.getLogger().addHandler(logging_handler)
-logging.info('Начало выполнения скрипта')
 
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+logger.addHandler(logging_handler)
+
+logging.info('Начало выполнения скрипта')
 
 def api_data_checker(sp_user_data: dict,
                      sp_user_locations: list,
