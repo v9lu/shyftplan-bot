@@ -1,4 +1,4 @@
-# Version 1.23.1 release
+# Version 1.23.2 release
 
 import configparser
 import json
@@ -8,6 +8,7 @@ import pytz
 import requests
 import time
 from datetime import datetime, timedelta
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from tools import config_data, db, work_data
@@ -24,8 +25,14 @@ DB_CONNECT = mysql.connect(user="root",
 requests.post(f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_USER_ID}&text="
               f"💫 <b>The auto-shifting has been started/restarted!</b>"
               f"&parse_mode=HTML")
-logging.basicConfig(filename=f'script_{TG_USER_ID}.log', level=logging.DEBUG)
+
+logging_handler = RotatingFileHandler(f'script_{TG_USER_ID}.log', maxBytes=10 * 1024 * 1024, backupCount=1)
+logging_handler.setLevel(logging.DEBUG)
+logging_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging_handler.setFormatter(logging_formatter)
+logging.getLogger().addHandler(logging_handler)
 logging.info('Начало выполнения скрипта')
+
 
 def api_data_checker(sp_user_data: dict,
                      sp_user_locations: list,
