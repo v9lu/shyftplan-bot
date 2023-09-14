@@ -1,7 +1,8 @@
-# Version 1.23.0 release
+# Version 1.23.1 release
 
 import configparser
 import json
+import logging
 import mysql.connector as mysql
 import pytz
 import requests
@@ -11,7 +12,7 @@ from pathlib import Path
 
 from tools import config_data, db, work_data
 
-TG_USER_ID = int(Path(__file__).stem.split("_")[1])  # Path(__file__).stem = ../path/program_0.py > program_0
+TG_USER_ID = int(Path(__file__).stem.split("_")[1])  # Path(__file__).stem = ../path/program_0.py > program_0 > 0
 TG_BOT_API_TOKEN = config_data.get_bot(configparser.ConfigParser())["bot_token"]
 BASE_URL = "https://shyftplan.com"
 COMPANY_ID = 50272
@@ -23,7 +24,8 @@ DB_CONNECT = mysql.connect(user="root",
 requests.post(f"https://api.telegram.org/bot{TG_BOT_API_TOKEN}/sendMessage?chat_id={TG_USER_ID}&text="
               f"💫 <b>The auto-shifting has been started/restarted!</b>"
               f"&parse_mode=HTML")
-
+logging.basicConfig(filename=f'script_{TG_USER_ID}.log', level=logging.DEBUG)
+logging.info('Начало выполнения скрипта')
 
 def api_data_checker(sp_user_data: dict,
                      sp_user_locations: list,
@@ -237,6 +239,7 @@ def join_or_accept_shift(shift_id: int,
 
 
 def newsfeeds_checker() -> bool:
+    logging.debug('Вход в функцию newsfeeds_checker() - успешно')
     locations = work_data.converter(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"])
     response = requests.get(f"{BASE_URL}/api/v1/newsfeeds",
                             params={"user_email": USER_DATA["sp_email"],
@@ -289,6 +292,7 @@ def newsfeeds_checker() -> bool:
 
 
 def open_shifts_checker() -> bool:
+    logging.debug('Вход в функцию open_shifts_checker() - успешно')
     locations = work_data.converter(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"])
     shifts_url_params = {
         "user_email": USER_DATA["sp_email"],
@@ -348,6 +352,7 @@ def open_shifts_checker() -> bool:
 
 
 def notificator() -> None:
+    logging.debug('Вход в функцию notificator() - успешно')
     wait_locations = work_data.converter(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"])
     wait_location_date_ranges = [location_date for location in wait_locations for location_date in location["dates"]]
     if wait_location_date_ranges:
@@ -400,10 +405,13 @@ def notificator() -> None:
 # MAIN SCRIPT #
 while True:
     try:
+        logging.info('Новая итерация цикла')
         POLAND_TIMEZONE = pytz.timezone("Europe/Warsaw")
         USER_DATA = db.users_get_user(conn=DB_CONNECT, user_id=TG_USER_ID)
         SP_USER_DATA = db.sp_users_get_user(conn=DB_CONNECT, sp_uid=USER_DATA["sp_uid"])
         SP_USER_SHIFTS_EXTRACTED = json.loads(SP_USER_DATA["shifts"])
+
+        logging.debug('Чтение базы данных - успешно')
 
         if not SP_USER_DATA["subscription"]:
             time.sleep(5)
@@ -428,6 +436,7 @@ while True:
             time.sleep(5)
             continue
 
+        logging.debug('Условия для продолжения работы скрипта - успешно')
         time.sleep(SP_USER_DATA["prog_sleep"])
 
         try:
@@ -442,9 +451,11 @@ while True:
                 requests.exceptions.ConnectionError,
                 json.decoder.JSONDecodeError) as e:
             print(f"[ERROR] {type(e).__name__}")
+            logging.error('Возникла ошибка во втором блоке исключений, повторение скрипта через 5 секунд')
             time.sleep(5)
             continue
     except mysql.errors.OperationalError as e:
         print(f"[ERROR] {type(e).__name__}")
+        logging.error('Возникла ошибка в первом блоке исключений, повторение скрипта через 5 секунд')
         time.sleep(5)
         continue
